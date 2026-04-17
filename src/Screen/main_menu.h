@@ -10,7 +10,7 @@ namespace machine32::screen {
 class MainMenu : public screenui::MainMenuBase {
 protected:
     void onEnter() override {
-        element(SCREEN32_ELEMENT_ID_C_MAIN_MENU).setText("main menu ready");
+        element(cnt_MAIN_MENU).setText("main menu ready");
     }
 
     void onClickBMainTask() override    { selectSection("task selected"); }
@@ -22,7 +22,7 @@ protected:
 
 private:
     void selectSection(const char* status) {
-        element(SCREEN32_ELEMENT_ID_C_MAIN_MENU).setText(status);
+        element(cnt_MAIN_MENU).setText(status);
     }
 };
 
