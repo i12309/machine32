@@ -1,0 +1,113 @@
+{
+  "config_version": 0,
+  "machine": "A",
+  "name": "ESP32",
+  "group": "DEV",
+  "settings": {
+    "AUTO_UPDATE": 0,
+    "UPDATE": 1,
+    "SERVER": "45.9.43.227",
+    "VERSION": "firmware.txt",
+    "FIRMWARE": "firmware.bin",
+    "HASH": "firmware.md5",
+    "TFT_UPDATE": 1,
+    "TFT_VERSION": "ui.txt",
+    "TFT_FIRMWARE": "ui.tft",
+    "CONNECT_WIFI": 1,
+    "ACCESS_POINT": 0,
+    "HTTP_SERVER": 1,
+    "LOG_BUFFER": 0,
+    "CHECK_SYSTEM": 1,
+    "MAX_PROFILES": 50,
+    "MAX_TASKS": 50,
+    "log": 0,
+    "metrics": 1,
+    "MCP_TRIGGER_I2C_WAIT_MS": 150
+  },
+  "tuning": {
+    "EDGE_DISTANCE_mm": 34.2,
+    "SENSOR_DISTANCE_mm": 34.2,
+    "DELTA_mm": 0,
+    "MARK_LENGHT_mm": 3,
+    "OVER_mm": 1.5,
+    "DISTANCE_BETWEEN_MARKS_mm": 40,
+    "CUT_count": 12,
+    "PROFILE_WIDTH_step": 2000,
+    "PROFILE_COUNT_CUT": 5
+  },
+  "device": {
+    "I2C": {
+      "MCP0": {"type": "output","address": "0x20"},
+      "MCP1": {"type": "output","address": "0x21"},
+      "MCP2": {"type": "input","address": "0x22","intA": 39,"intB": 34}
+    },
+    "motors": {
+      "TABLE": {
+        "I2C": "MCP0",
+        "pin":{"step": 23, "dir": 0, "ena": 1},
+        "MicroStep": 3200,
+        "Speed":[
+           {"Mode":"Normal","Speed": 16000, "Acceleration": 32000},
+           {"Mode":"Slow","Speed": 9600, "Acceleration": 9600}
+        ],
+        "WorkMove": 9500,
+        "Check": [
+          {"Mode":"TABLE_NOT_DOWN","step": 19000, "ms": -1},
+          {"Mode":"TABLE_NOT_UP","step": 19000, "ms": -1}
+        ]
+      },
+      "PAPER": {
+        "I2C": "MCP0",
+        "pin":{"step": 19, "dir": 2, "ena": 3},
+        "MicroStep": 3200,
+        "WorkMove": 3200,
+        "Speed":[
+           {"Mode":"Normal","Speed": 16000, "Acceleration": 32000},
+           {"Mode":"Slow","Speed": 9600, "Acceleration": 9600},
+           {"Mode":"Paper","Speed": 4800, "Acceleration": 32000},
+           {"Mode":"Mark","Speed": 2400, "Acceleration": 32000},
+           {"Mode":"Force","Speed": 32000, "Acceleration": 32000}
+        ],
+        "Check": [
+          {"Mode":"PAPER_NOT_FOUND","step": 7200, "ms": -1},
+          {"Mode":"PAPER_FIND_IN_MARK","step": 1000, "ms": -1},
+          {"Mode":"PAPER_FIND_OUT_MARK","step": 1000, "ms": -1},
+          {"Mode":"PAPER_SEARCH","step": 30000, "ms": -1}
+        ]
+      },
+      "GUILLOTINE": {
+        "I2C": "MCP0",
+        "pin":{"step": 18, "dir": 4, "ena": 5},
+        "MicroStep": 3200,
+        "Speed":[
+           {"Mode":"Normal","Speed": 16000, "Acceleration": 32000},
+           {"Mode":"Slow","Speed": 9600, "Acceleration": 9600}
+        ],
+        "WorkMove": 3200,
+        "Check": [
+          {"Mode":"GUILLOTINE_NOT_IN","step": 4000, "ms": 1500}
+        ]
+      }
+    },
+    "switchs": {
+      "CATCH": {"I2C": "MCP1","pin": 12,"sig": 0},
+      "THROW": {"I2C": "MCP1","pin": 13,"sig": 0},
+      "PAPER": {"I2C": "MCP1","pin": 14,"sig": 0}
+    },
+    "sensors": { 
+      "TABLE_UP": {"I2C": "MCP2","pin": 0},
+      "TABLE_DOWN": {"I2C": "MCP2","pin": 1},
+      "GUILLOTINE": {"I2C": "MCP2","pin": 2},
+      "THROW": {"I2C": "MCP2","pin": 3}
+    },
+    "optical": {
+      "MARK": {"pin": 35, "sig": 1},
+      "EDGE": {"pin": 36, "sig": 0}
+    },
+    "buttons": {"START": {"I2C": "MCP2","pin": 16}},
+    "encoders": {
+      "CATCH": {"I2C": "ESP32","pinA": 0,"pinB": 0,"pcnt":6,"threshold": 100},
+      "PAPER": {"I2C": "ESP32","pinA": 4,"pinB": 5,"pcnt":7,"threshold": -1}
+    }
+  }
+}

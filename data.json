@@ -1,0 +1,24 @@
+{
+  "profiles": [
+    {
+      "ID": 0,
+      "NAME": "Профиль",
+      "RATIO_mm": 50.6,
+      "DESC": "Описание профиля",
+      "LENGHT_mm": 450
+    }
+  ],
+  "tasks": [
+    {
+      "ID": 0,
+      "NAME": "Задание",
+      "PROFILE_ID": 0,
+      "OVER_mm": 2,
+      "PRODUCT_mm": 49.5,
+      "FIRST_CUT_mm": 8,
+      "MARK_mm": 3,
+      "LASTCUT_mm": 0,
+      "MARK": 1
+    }
+  ]
+}

@@ -1,0 +1,85 @@
+﻿// Шаблон для добавления нового типа станка в MachineSpec.
+//
+// Как использовать:
+// 1. Скопируйте этот файл, например в MachineSpec_B.cpp.
+// 2. Замените PLACEHOLDER_TYPE на нужный тип (B/C/...).
+// 3. В MachineSpec.h добавьте объявления makeB()/fillDefaultsB().
+// 4. В MachineSpec.cpp добавьте ветку в switch для MachineType::B.
+//
+// Важно:
+// - Код держим простым и прямолинейным.
+// - Все обязательные элементы описываем в makeX().
+// - Полные атрибуты по device заполняем в fillDefaultsX().
+
+#include "Machine/MachineSpec.h"
+
+// Пример: MachineSpec::makeB()
+MachineSpec MachineSpec::makePLACEHOLDER_TYPE() {
+    MachineSpec spec;
+    spec.type_ = Catalog::MachineType::PLACEHOLDER_TYPE;
+
+    // I2C расширители.
+    spec.i2c_.push_back({ "MCP0", true });
+
+    // Моторы.
+    spec.motors_.push_back({ "MAIN", true });
+
+    // Датчики.
+    spec.sensors_.push_back({ "MAIN_HOME", true });
+
+    // Оптика.
+    spec.optical_.push_back({ "MARK", false });
+
+    // Муфты.
+    // spec.clutchs_.push_back({ "MAIN", false });
+
+    // Кнопки.
+    // spec.buttons_.push_back({ "START", false });
+
+    // Энкодеры.
+    // spec.encoders_.push_back({ "MAIN", false });
+
+    return spec;
+}
+
+// Пример: MachineSpec::fillDefaultsB(...)
+void MachineSpec::fillDefaultsPLACEHOLDER_TYPE(JsonObject device) const {
+    // Полный дефолт для нового типа.
+    // В каждую секцию кладем реальные ключи и значения, а не пустые объекты.
+
+    JsonObject i2c = device["I2C"].to<JsonObject>();
+    {
+        JsonObject mcp0 = i2c["MCP0"].to<JsonObject>();
+        mcp0["type"] = "output";
+        mcp0["address"] = "0x20";
+    }
+
+    JsonObject motors = device["motors"].to<JsonObject>();
+    {
+        JsonObject main = motors["MAIN"].to<JsonObject>();
+        main["I2C"] = "MCP0";
+        JsonObject pin = main["pin"].to<JsonObject>();
+        pin["step"] = 1;
+        pin["dir"] = 2;
+        pin["ena"] = 3;
+        main["MicroStep"] = 3200;
+
+        JsonArray speed = main["Speed"].to<JsonArray>();
+        JsonObject normal = speed.add<JsonObject>();
+        normal["Mode"] = "Normal";
+        normal["Speed"] = 16000;
+        normal["Acceleration"] = 32000;
+    }
+
+    JsonObject sensors = device["sensors"].to<JsonObject>();
+    {
+        JsonObject home = sensors["MAIN_HOME"].to<JsonObject>();
+        home["I2C"] = "MCP0";
+        home["pin"] = 0;
+    }
+
+    device["optical"].to<JsonObject>();
+    device["clutchs"].to<JsonObject>();
+    device["buttons"].to<JsonObject>();
+    device["encoders"].to<JsonObject>();
+}
