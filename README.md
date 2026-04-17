@@ -1,27 +1,27 @@
 ﻿# machine32
 
-`machine32` is the backend/host business project.
+`machine32` — backend/host business project.
 
-It consumes:
-- `screenLIB` (host/core/client runtime and protocol)
-- `ScreenUI/generated/shared` (generated page/element IDs and descriptors)
+Он использует:
+- `screenLIB` как host/core/client runtime и протокольный слой;
+- `ScreenUI/generated/shared` как источник generated page/element ids и descriptors.
 
-It must not depend on:
-- LVGL
-- `ScreenUI/eez_project/src/ui`
-- `ScreenUI/generated/frontend_meta`
-- concrete frontend adapter (`EezLvglAdapter`, `UiObjectMap`)
+Он не должен зависеть от:
+- LVGL;
+- `ScreenUI/eez_project/src/ui`;
+- `ScreenUI/generated/frontend_meta`;
+- concrete frontend adapter (`EezLvglAdapter`, `UiObjectMap`).
 
-## Workspace Dependency Layout
+## Локальная схема зависимостей
 
-Recommended local layout:
+Рекомендуемое расположение рядом в workspace:
 - `../screenLIB`
 - `../ScreenUI`
 
-`machine32` should include only `../ScreenUI/generated/shared` from UI package.
+Из UI-пакета `machine32` должен подключать только `../ScreenUI/generated/shared`.
 
-## Next Steps
+## Направление развития
 
-1. Implement host/business logic over `screenlib::ScreenSystem` and page controllers.
-2. Use shared generated IDs/descriptors from `ScreenUI/generated/shared` for routing/validation.
-3. Keep UI runtime details out of backend code.
+1. Реализовывать host/business-логику поверх `screenlib::ScreenSystem` и page controllers.
+2. Использовать shared generated ids/descriptors из `ScreenUI/generated/shared` для маршрутизации и валидации.
+3. Не переносить детали UI runtime в backend-код.
