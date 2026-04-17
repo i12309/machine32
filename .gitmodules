@@ -1,0 +1,6 @@
+[submodule "lib/ScreenUI"]
+	path = lib/ScreenUI
+	url = https://github.com/i12309/ScreenUI.git
+[submodule "lib/screenLIB"]
+	path = lib/screenLIB
+	url = https://github.com/i12309/screenLIB.git
