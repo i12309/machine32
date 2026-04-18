@@ -9,7 +9,7 @@ namespace machine32::screen {
 // здесь — только бизнес-логика.
 class MainMenu : public screenui::MainMenuBase {
 protected:
-    void onEnter() override {
+    void onShow() override {
         element(cnt_MAIN_MENU).setText("main menu ready");
     }
 

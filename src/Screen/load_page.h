@@ -8,7 +8,7 @@ class MainMenu;  // forward для navigate<MainMenu>()
 
 class LoadPage : public screenui::LoadBase {
 protected:
-    void onEnter() override {
+    void onShow() override {
         // Здесь может быть лёгкая работа: проверки, прогресс-бар.
         // Когда готово — уходим на главное меню.
         // navigate<MainMenu>();  // раскомментируй, когда нужно
