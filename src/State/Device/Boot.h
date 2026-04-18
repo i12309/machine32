@@ -7,25 +7,28 @@
 #include "Service/ESPUpdate.h"
 #include "Service/NexUpdate.h"
 #include "Service/Licence.h"
+#include "Service/MQTTC.h"
 #include "Service/Stats.h"
+#include "Service/WiFiConfig.h"
+#include "Screen/Screen.h"
 #include "version.h"
 
-#include "UI/Main/pLoad.h"
 #include "UI/Main/pINFO.h"
 #include "UI/Main/pINIT.h"
 #include "State/State.h"
 #include "Controller/McpTrigger.h"
 #include "App/App.h"
 
+using machine32::screen::Screen;
+
 class Boot : public State {
 private:
     struct BootContext {
         bool wifiConnected = false;
-        bool displayReady = false;
+        bool screenReady = false;
         bool abortRequested = false;
         bool haltRequested = false;
         State::Type abortState = State::Type::NULL_STATE;
-        int label_num = 0;
     };
 
     static BootContext& context() {
@@ -48,35 +51,11 @@ private:
     }
 
     static void setStatus(const String& text) {
-        if (!context().displayReady) {
-            // экран не работает - выводим в терминал
-            Log::D("BOOT: %s", text.c_str());
-            return;
-        }
-
-        BootContext& ctx = context();
-        ctx.label_num++;
-        pLoad& load = pLoad::getInstance();
-        load.text(text);
-        if (ctx.label_num-1 > 0) {
-            uint32_t prevColor = load.getProgressColor(ctx.label_num-1);
-            if (prevColor != Catalog::Color::red) {
-                load.setProgressColor(ctx.label_num-1, Catalog::Color::green);
-            }
-        }
-        load.setProgressColor(ctx.label_num, Catalog::Color::orange);
+        Log::D("BOOT: %s", text.c_str());
     }
 
     static void setStatusFail(const String& text) {
-        if (!context().displayReady) {
-            Log::E("BOOT: %s", text.c_str());
-            return;
-        }
-
-        BootContext& ctx = context();
-        pLoad& load = pLoad::getInstance();
-        load.text(text);
-        load.setProgressColor(ctx.label_num, Catalog::Color::red);
+        Log::E("BOOT: %s", text.c_str());
     }
 public:
     Boot() : State(State::Type::BOOT) {}
@@ -89,16 +68,14 @@ public:
         plan.beginPlan(this->type());
 
         plan.addAction(State::Type::ACTION, &Boot::LogStart, "LogStart");
-        plan.addAction(State::Type::ACTION, &Boot::InitNextion, "InitNextion");
+        plan.addAction(State::Type::ACTION, &Boot::InitScreen, "InitScreen");
         plan.addAction(State::Type::ACTION, &Boot::ShowLoad, "ShowLoad");
         plan.addAction(State::Type::ACTION, &Boot::InitFileSystem, "InitFileSystem");
         plan.addAction(State::Type::ACTION, &Boot::InitNVS, "InitNVS");
         plan.addAction(State::Type::ACTION, &Boot::LoadConfig, "LoadConfig");
         plan.addAction(State::Type::ACTION, &Boot::ConnectWiFi, "ConnectWiFi");
-        plan.addAction(State::Type::ACTION, &Boot::TryRecoverNextionIfMissing, "TryRecoverNextionIfMissing");
         plan.addAction(State::Type::ACTION, &Boot::UpdateESP, "UpdateESP");
-        plan.addAction(State::Type::ACTION, &Boot::SetTFTVersion, "SetTFTVersion");
-        plan.addAction(State::Type::ACTION, &Boot::UpdateTFT, "UpdateTFT");
+        plan.addAction(State::Type::ACTION, &Boot::SetScreenVersion, "SetScreenVersion");
         plan.addAction(State::Type::ACTION, &Boot::StartHttp, "StartHTTP");
         plan.addAction(State::Type::ACTION, &Boot::ConnectMQTT, "ConnectMQTT");
         plan.addAction(State::Type::ACTION, &Boot::LoadData, "LoadData");
@@ -146,30 +123,29 @@ private:
         return true;
     }
 
-    static bool InitNextion() {
+    static bool InitScreen() {
         BootContext& boot = context();
-        boot.displayReady = false;
+        boot.screenReady = false;
 
-        // три раза пытаемся запустить монитор
-        for (int attempt = 1; attempt <= 3; ++attempt) {
-            if (Page::nextionInit()) { // Инициализация экрана
-                boot.displayReady = true;
-                return true;
-            }
-
-            Log::D("Nextion init failed, attempt %d/3", attempt);
-            if (attempt < 3) delay(300);
+        Screen& screen = Screen::getInstance();
+        if (!screen.init(0)) {
+            Log::E(" === ERROR Screen Init: %s", screen.lastError());
+            requestAbort(State::Type::NULL_STATE);
+            return true;
         }
 
-        Log::E(" === ERROR Nextion Init ");
+        boot.screenReady = !screen.isSilent();
         return true;
     }
 
     static bool ShowLoad() {
-        if (!context().displayReady) return true; // экрана нет - пропускаем
-        pLoad::getInstance().show();
+        if (!context().screenReady) return true;
+
         setStatus("Загрузка интерфейса");
-        pLoad::getInstance().checkVersion();
+        if (!Screen::getInstance().showLoad()) {
+            Log::E(" === ERROR ShowLoad: %s", Screen::getInstance().lastError());
+            requestAbort(State::Type::NULL_STATE);
+        }
         return true;
     }
 
@@ -189,8 +165,6 @@ private:
         setStatus("Инициализация NVS");
         NVS& nvs = NVS::getInstance();
         nvs.init();
-        if (nvs.getInt("tft_rcnt", 0, "boot") > 2) nvs.setInt("tft_rcnt", 2, "boot");
-        if (context().displayReady && nvs.getInt("tft_rcnt", 0, "boot") != 0) nvs.setInt("tft_rcnt", 0, "boot");
 
         int bootCount = nvs.getInt("boot_count", 0, "boot");
         bootCount++;
@@ -214,7 +188,7 @@ private:
 
     static bool LoadConfig() {
         setStatus("Загрузка конфигурации");
-        if (Core::config.load(!context().displayReady)) {
+        if (Core::config.load(!context().screenReady)) {
             String machineError;
             String selectedMachine = *App::cfg().machineName;
             if (!App::machine().selectByName(selectedMachine, &machineError)) {
@@ -242,37 +216,6 @@ private:
         return true;
     }
 
-    static bool TryRecoverNextionIfMissing() {
-        setStatus("Восстановление интерфейса");
-        if (context().displayReady) return true; // а экран то работает
-        if (!context().wifiConnected) return true; // а связи нет
-
-        NVS& nvs = NVS::getInstance();
-        int tftRecoveryCount = nvs.getInt("tft_rcnt", 0, "boot");
-        if (tftRecoveryCount >= 2) return true;
-
-        int nextAttempt = tftRecoveryCount + 1;
-        nvs.setInt("tft_rcnt", nextAttempt, "boot");
-        Log::L("Попытка восстановить экран %d/2", nextAttempt);
-
-        int level = NexUpdate::getInstance().checkForUpdate();
-        if (level <= 0) {
-            level = 2;
-            Log::D("No newer TFT version found. Using forced recovery level %d", level);
-        }
-
-        nvs.setInt("tft_rcnt", 0, "boot"); // TODO - тут стоит подумать может все таки это поместить внутри upload
-
-        if (NexUpdate::getInstance().upload(level, true)) {
-            Log::L("Nextion recovery success on attempt %d/2. Rebooting...", nextAttempt);
-            requestHalt();
-            return true;
-        }
-
-        Log::E("Nextion recovery failed on attempt %d/2", nextAttempt);
-        return true;
-    }
-
     static bool UpdateESP() {
         setStatus("Проверка обновлений прошивки");
         if (!context().wifiConnected) return true;
@@ -281,41 +224,18 @@ private:
             int level = ESPUpdate::getInstance().checkForUpdate();
             if (level > 0) {
                 ESPUpdate::getInstance().FirmwareUpdate(level, [](int percent) {
-                    String text = "Обновление: " + String(percent) + "%";
-                    pLoad::getInstance().text(text);
+                    Log::D("ESP update: %d%%", percent);
                 });
             }
         }
         return true;
     }
 
-    static bool SetTFTVersion() {
-        if (!context().displayReady) {
-            NexUpdate::getInstance().setCurrentVersion(-1);
-            return true;
-        }
-
-        setStatus("Проверка версии экрана");
-        NexUpdate::getInstance().setCurrentVersion(pLoad::getInstance().getHMIVersion());
+    static bool SetScreenVersion() {
+        Screen& screen = Screen::getInstance();
+        screen.updateScreenVersion();
+        NexUpdate::getInstance().setCurrentVersion(screen.getScreenVersion());
         Log::L("Device version: %s", Version::makeDeviceVersion(NexUpdate::getInstance().getCurrentVersion()).c_str());
-        return true;
-    }
-
-    static bool UpdateTFT() {
-        setStatus("Обновление интерфейса");
-        if (!context().wifiConnected) return true;
-
-        if ((*App::cfg().autoUpdate == 1) && (*App::cfg().updateTft == 1)) {
-            int level = NexUpdate::getInstance().checkForUpdate();
-            if (level > 0) {
-                if (context().displayReady) pLoad::getInstance().text("Обновление интерфейса");
-                if (NexUpdate::getInstance().upload(level, true)) {
-                    requestHalt();
-                    return true;
-                }
-                Log::E("Nextion update failed in boot flow");
-            }
-        }
         return true;
     }
 

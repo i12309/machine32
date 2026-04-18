@@ -10,7 +10,10 @@
 #include "State/PlanManager.h"
 #include "State/Scene.h"
 #include "State/State.h"
+#include "Screen/Screen.h"
 #include "UI/Page.h"
+
+using machine32::screen::Screen;
 
 namespace {
 App::Context buildAppContext() {
@@ -156,6 +159,7 @@ void App::init() {
 }
 
 void App::process() {
+    Screen::getInstance().tick();
     Page::process();
     State::process();
     Service::process();
