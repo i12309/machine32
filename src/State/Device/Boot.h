@@ -11,55 +11,71 @@
 #include "Service/Stats.h"
 #include "Service/WiFiConfig.h"
 #include "Screen/Screen.h"
+#include "Screen/page/main/info.h"
+#include "Screen/page/main/load.h"
+#include "Screen/page/main/main.h"
 #include "version.h"
 
-#include "UI/Main/pINFO.h"
 #include "UI/Main/pINIT.h"
 #include "State/State.h"
 #include "Controller/McpTrigger.h"
 #include "App/App.h"
 
+using machine32::screen::Info;
+using machine32::screen::Load;
+using machine32::screen::Main;
 using machine32::screen::Screen;
 
+// Состояние начальной загрузки устройства.
 class Boot : public State {
 private:
+    // Контекст загрузки, который живет между шагами boot-плана.
     struct BootContext {
         bool wifiConnected = false;
         bool screenReady = false;
+        bool waitingInfo = false;
         bool abortRequested = false;
         bool haltRequested = false;
         State::Type abortState = State::Type::NULL_STATE;
     };
 
+    // Возвращает общий контекст текущей загрузки.
     static BootContext& context() {
         static BootContext ctx;
         return ctx;
     }
 
+    // Сбрасывает контекст перед новым запуском BOOT.
     static void resetContext() {
         context() = BootContext();
     }
 
+    // Запрашивает аварийный выход из BOOT в указанное состояние.
     static void requestAbort(State::Type state) {
         BootContext& ctx = context();
         ctx.abortRequested = true;
         ctx.abortState = state;
     }
 
+    // Запрашивает остановку BOOT без перехода в другое состояние.
     static void requestHalt() {
         context().haltRequested = true;
     }
 
+    // Пишет служебный статус загрузки в лог.
     static void setStatus(const String& text) {
         Log::D("BOOT: %s", text.c_str());
     }
 
+    // Пишет ошибочный статус загрузки в лог.
     static void setStatusFail(const String& text) {
         Log::E("BOOT: %s", text.c_str());
     }
 public:
+    // Создает состояние BOOT.
     Boot() : State(State::Type::BOOT) {}
 
+    // Формирует пошаговый план загрузки устройства.
     void oneRun() override {
         State::oneRun();
         resetContext();
@@ -84,6 +100,7 @@ public:
 
     }
 
+    // Выполняет boot-план и удерживает BOOT, пока открыт новый экран Info.
     State* run() override {
         PlanManager& plan = App::plan();
         BootContext& boot = context();
@@ -116,6 +133,7 @@ public:
     }
 
 private:
+    // Пишет стартовую служебную информацию о контроллере.
     static bool LogStart() {
         Log::L(" === START v.%s", Version::makeDeviceVersion(NexUpdate::getInstance().getCurrentVersion()).c_str());
         Log::D("ESP32 Chip: %s Rev %d", ESP.getChipModel(), ESP.getChipRevision());
@@ -123,6 +141,7 @@ private:
         return true;
     }
 
+    // Инициализирует новый экранный runtime.
     static bool InitScreen() {
         BootContext& boot = context();
         boot.screenReady = false;
@@ -138,17 +157,19 @@ private:
         return true;
     }
 
+    // Показывает экран загрузки через новый класс страницы.
     static bool ShowLoad() {
         if (!context().screenReady) return true;
 
         setStatus("Загрузка интерфейса");
-        if (!Screen::getInstance().showLoad()) {
+        if (!Load::show()) {
             Log::E(" === ERROR ShowLoad: %s", Screen::getInstance().lastError());
             requestAbort(State::Type::NULL_STATE);
         }
         return true;
     }
 
+    // Инициализирует файловую систему устройства.
     static bool InitFileSystem() {
         setStatus("Инициализация файловой системы");
         if (FileSystem::init(true)) {
@@ -161,6 +182,7 @@ private:
         return true;
     }
 
+    // Инициализирует NVS и обрабатывает счетчик неудачных загрузок.
     static bool InitNVS() {
         setStatus("Инициализация NVS");
         NVS& nvs = NVS::getInstance();
@@ -178,7 +200,7 @@ private:
             }
             nvs.setInt("boot_count", 0, "boot");
             nvs.setInt("ota_pending", 0, "boot");
-            pINFO::showInfo("", "Что-то пошло не так!", "Проверьте параметры", [](){pINIT::getInstance().show();});
+            Info::showInfo("", "Что-то пошло не так!", "Проверьте параметры", [](){pINIT::getInstance().show();});
             requestAbort(State::Type::NULL_STATE);
             return true;
         }
@@ -186,6 +208,7 @@ private:
         return true;
     }
 
+    // Загружает конфигурацию и выбирает тип машины.
     static bool LoadConfig() {
         setStatus("Загрузка конфигурации");
         if (Core::config.load(!context().screenReady)) {
@@ -209,6 +232,7 @@ private:
         return true;
     }
 
+    // Подключает устройство к Wi-Fi при включенной настройке.
     static bool ConnectWiFi() {
         setStatus("Подключение к Wi-Fi");
         BootContext& boot = context();
@@ -216,6 +240,7 @@ private:
         return true;
     }
 
+    // Проверяет наличие обновлений ESP-прошивки.
     static bool UpdateESP() {
         setStatus("Проверка обновлений прошивки");
         if (!context().wifiConnected) return true;
@@ -231,6 +256,7 @@ private:
         return true;
     }
 
+    // Запрашивает у экрана версию UI и сохраняет ее в сервисе версий.
     static bool SetScreenVersion() {
         Screen& screen = Screen::getInstance();
         screen.updateScreenVersion();
@@ -239,6 +265,7 @@ private:
         return true;
     }
 
+    // Запускает HTTP-сервер после подключения к сети.
     static bool StartHttp() {
         setStatus("Запуск HTTP сервера");
         if (context().wifiConnected && (*App::cfg().httpServer == 1)) {
@@ -247,6 +274,7 @@ private:
         return true;
     }
 
+    // Подключает MQTT-клиент после появления сети.
     static bool ConnectMQTT() {
         setStatus("Подключение к серверу");
         if (context().wifiConnected) {
@@ -255,6 +283,7 @@ private:
         return true;
     }
 
+    // Загружает данные приложения из постоянного хранилища.
     static bool LoadData() {
         setStatus("Загрузка данных");
         // проверка лицензии
@@ -273,6 +302,8 @@ private:
         Stats::getInstance().init();
         return true;
     }
+
+    // Инициализирует реестр устройств и проверяет его совместимость с машиной.
     static bool InitRegistry() {
         setStatus("Инициализация устройств");
         String registry_error_message;
@@ -329,6 +360,7 @@ private:
         return true;
     }
 
+    // Регистрирует все системные триггеры после инициализации.
     static bool RegisterTriggers() {
         setStatus("Регистрация триггеров");
         Trigger::getInstance().registerTrigger();
@@ -337,4 +369,3 @@ private:
     }
 
 };
-

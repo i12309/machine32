@@ -4,18 +4,18 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "Screen/page/main/load.h"
-#include "Screen/page/main/main.h"
 #include "Service/Log.h"
 #include "Service/PinList.h"
 
 namespace machine32::screen {
 
+// Возвращает общий экземпляр фасада экрана.
 Screen& Screen::getInstance() {
     static Screen instance;
     return instance;
 }
 
+// Инициализирует runtime и настраивает доступные каналы вывода.
 bool Screen::init(uint8_t modeValue) {
     reset();
 
@@ -62,6 +62,7 @@ bool Screen::init(uint8_t modeValue) {
     return true;
 }
 
+// Обрабатывает события runtime, если экран активен.
 void Screen::tick() {
     if (!_initialized || isSilent()) {
         return;
@@ -69,46 +70,25 @@ void Screen::tick() {
     _runtime.tick();
 }
 
-bool Screen::showLoad() {
-    if (!_initialized) {
-        snprintf(_lastError, sizeof(_lastError), "screen is not initialized");
+// Возвращает runtime на предыдущую страницу без знания бизнес-смысла перехода.
+bool Screen::back() {
+    if (!_initialized || isSilent()) {
         return false;
     }
-    if (isSilent()) {
-        return true;
-    }
-    if (_runtime.currentPageId() == screenui::LoadBase::kPageId) {
-        return true;
-    }
-
-    const bool shown = showPage<Load>();
-    return shown;
+    return _runtime.back();
 }
 
-bool Screen::showMain() {
-    if (!_initialized) {
-        snprintf(_lastError, sizeof(_lastError), "screen is not initialized");
-        return false;
-    }
-    if (isSilent()) {
-        return true;
-    }
-    if (_runtime.currentPageId() == screenui::MainBase::kPageId) {
-        return true;
-    }
-
-    const bool shown = showPage<Main>();
-    return shown;
-}
-
+// Возвращает состояние физического соединения экрана.
 bool Screen::connectedPhysical() const {
     return _initialized && _physicalEnabled && _runtime.connectedPhysical();
 }
 
+// Возвращает состояние web-соединения экрана.
 bool Screen::connectedWeb() const {
     return _initialized && _webEnabled && _runtime.connectedWeb();
 }
 
+// Запрашивает у экрана текущую служебную информацию об устройстве.
 bool Screen::updateScreenVersion() {
     if (!_initialized || isSilent()) {
         _screenVersion = kUnknownScreenVersion;
@@ -117,6 +97,7 @@ bool Screen::updateScreenVersion() {
     return _runtime.screens().requestDeviceInfo(kDeviceInfoRequestId);
 }
 
+// Перенаправляет событие runtime в экземпляр фасада.
 void Screen::onRuntimeEvent(const Envelope& env, const screenlib::ScreenEventContext& ctx, void* userData) {
     Screen* self = static_cast<Screen*>(userData);
     if (self != nullptr) {
@@ -124,6 +105,7 @@ void Screen::onRuntimeEvent(const Envelope& env, const screenlib::ScreenEventCon
     }
 }
 
+// Разбирает только системные события runtime.
 void Screen::handleRuntimeEvent(const Envelope& env, const screenlib::ScreenEventContext& ctx) {
     switch (env.which_payload) {
         case Envelope_hello_tag:
@@ -141,6 +123,7 @@ void Screen::handleRuntimeEvent(const Envelope& env, const screenlib::ScreenEven
     }
 }
 
+// Сохраняет служебную информацию, пришедшую от экрана.
 void Screen::applyDeviceInfo(const DeviceInfo& info, const screenlib::ScreenEventContext& ctx) {
     _deviceInfo = info;
     _hasDeviceInfo = true;
@@ -152,12 +135,9 @@ void Screen::applyDeviceInfo(const DeviceInfo& info, const screenlib::ScreenEven
            info.ui_version,
            info.screen_type,
            info.client_type);
-
-    if (_runtime.currentPageId() == screenui::LoadBase::kPageId) {
-        _runtime.setText(txt_LOAD_VERSION, info.ui_version);
-    }
 }
 
+// Извлекает номер версии из текста вида "UI: 123".
 int Screen::parseScreenVersion(const char* text) {
     if (text == nullptr || *text == '\0') {
         return kUnknownScreenVersion;
@@ -172,6 +152,7 @@ int Screen::parseScreenVersion(const char* text) {
     return atoi(text);
 }
 
+// Нормализует внешний режим работы экрана.
 Screen::Mode Screen::sanitizeMode(uint8_t mode) {
     switch (mode) {
         case static_cast<uint8_t>(Mode::Auto): return Mode::Auto;
@@ -183,14 +164,17 @@ Screen::Mode Screen::sanitizeMode(uint8_t mode) {
     }
 }
 
+// В текущей конфигурации физический экран всегда поддерживается.
 bool Screen::supportsPhysical() {
     return true;
 }
 
+// В текущей конфигурации web-экран всегда поддерживается.
 bool Screen::supportsWeb() {
     return true;
 }
 
+// Возвращает фасад в исходное состояние.
 void Screen::reset() {
     _mode = Mode::Silent;
     _initialized = false;
@@ -203,6 +187,7 @@ void Screen::reset() {
     _lastError[0] = '\0';
 }
 
+// Выбирает активные выходы под заданный режим работы.
 bool Screen::selectOutputs(Mode requestedMode, bool& usePhysical, bool& useWeb) {
     usePhysical = false;
     useWeb = false;
@@ -255,6 +240,7 @@ bool Screen::selectOutputs(Mode requestedMode, bool& usePhysical, bool& useWeb) 
     return false;
 }
 
+// Собирает конфигурацию runtime для выбранного набора выходов.
 void Screen::buildConfig(bool usePhysical, bool useWeb, screenlib::ScreenConfig& cfg) const {
     cfg = screenlib::ScreenConfig{};
 

@@ -10,8 +10,10 @@
 
 namespace machine32::screen {
 
-class Load : public screenui::LoadBase {
+// Страница загрузки, которая показывает версию и MAC до перехода дальше.
+class Load : public screenui::LoadBase<Load> {
 protected:
+    // Подготавливает отображаемые сервисные данные страницы загрузки.
     void onShow() override {
         _openedMain = false;
 
@@ -23,6 +25,7 @@ protected:
         element(txt_LOAD_MA_CADDRESS).setText(WiFi.macAddress().c_str());
     }
 
+    // После перехода состояния в IDLE открывает главный экран.
     void onTick() override {
         State* currentState = App::state();
         if (currentState == nullptr || _openedMain) {
@@ -31,7 +34,7 @@ protected:
 
         if (currentState->type() == State::Type::IDLE) {
             _openedMain = true;
-            navigate<Main>();
+            Main::show();
         }
     }
 
