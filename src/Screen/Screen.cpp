@@ -1,5 +1,6 @@
 #include "Screen/Screen.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -42,6 +43,7 @@ bool Screen::init(uint8_t modeValue) {
 
     screenlib::ScreenConfig cfg{};
     buildConfig(usePhysical, useWeb, cfg);
+    _runtime.setEventObserver(&Screen::onRuntimeEvent, this);
 
     if (!_runtime.init(cfg)) {
         snprintf(_lastError, sizeof(_lastError), "screen init failed: %s", _runtime.lastError());
@@ -56,6 +58,7 @@ bool Screen::init(uint8_t modeValue) {
            static_cast<unsigned>(_mode),
            _physicalEnabled ? 1 : 0,
            _webEnabled ? 1 : 0);
+    updateScreenVersion();
     return true;
 }
 
@@ -97,8 +100,66 @@ bool Screen::connectedWeb() const {
 }
 
 bool Screen::updateScreenVersion() {
-    _screenVersion = kUnknownScreenVersion;
-    return false;
+    if (!_initialized || isSilent()) {
+        _screenVersion = kUnknownScreenVersion;
+        return false;
+    }
+    return _runtime.screens().requestDeviceInfo(1);
+}
+
+void Screen::onRuntimeEvent(const Envelope& env, const screenlib::ScreenEventContext& ctx, void* userData) {
+    Screen* self = static_cast<Screen*>(userData);
+    if (self != nullptr) {
+        self->handleRuntimeEvent(env, ctx);
+    }
+}
+
+void Screen::handleRuntimeEvent(const Envelope& env, const screenlib::ScreenEventContext& ctx) {
+    switch (env.which_payload) {
+        case Envelope_hello_tag:
+            if (env.payload.hello.has_device_info) {
+                applyDeviceInfo(env.payload.hello.device_info, ctx);
+            }
+            break;
+
+        case Envelope_device_info_tag:
+            applyDeviceInfo(env.payload.device_info, ctx);
+            break;
+
+        default:
+            break;
+    }
+}
+
+void Screen::applyDeviceInfo(const DeviceInfo& info, const screenlib::ScreenEventContext& ctx) {
+    _deviceInfo = info;
+    _hasDeviceInfo = true;
+    _screenVersion = parseScreenVersion(info.ui_version);
+
+    Log::D("[Screen] device info from %s: fw='%s' ui='%s' type='%s' client='%s'",
+           ctx.isPhysical ? "physical" : (ctx.isWeb ? "web" : "unknown"),
+           info.fw_version,
+           info.ui_version,
+           info.screen_type,
+           info.client_type);
+
+    if (_runtime.currentPageId() == screenui::LoadBase::kPageId) {
+        _runtime.setText(txt_LOAD_VERSION, info.ui_version);
+    }
+}
+
+int Screen::parseScreenVersion(const char* text) {
+    if (text == nullptr || *text == '\0') {
+        return kUnknownScreenVersion;
+    }
+
+    while (*text != '\0' && !isdigit(static_cast<unsigned char>(*text))) {
+        ++text;
+    }
+    if (*text == '\0') {
+        return kUnknownScreenVersion;
+    }
+    return atoi(text);
 }
 
 Screen::Mode Screen::sanitizeMode(uint8_t mode) {
@@ -125,7 +186,9 @@ void Screen::reset() {
     _initialized = false;
     _physicalEnabled = false;
     _webEnabled = false;
+    _hasDeviceInfo = false;
     _screenVersion = kUnknownScreenVersion;
+    _deviceInfo = DeviceInfo{};
     _runtime = screenlib::SinglePageRuntime();
     _lastError[0] = '\0';
 }

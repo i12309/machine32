@@ -12,7 +12,10 @@ class Main;
 class LoadPage : public screenui::LoadBase {
 protected:
     void onShow() override {
-        const String version = Version::makeDeviceVersion(Screen::getInstance().getScreenVersion());
+        Screen& screen = Screen::getInstance();
+        const String version = screen.hasDeviceInfo()
+            ? String(screen.screenUiVersion())
+            : Version::makeDeviceVersion(screen.getScreenVersion());
         element(txt_LOAD_VERSION).setText(version.c_str());
         element(txt_LOAD_MA_CADDRESS).setText(WiFi.macAddress().c_str());
 
