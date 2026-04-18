@@ -54,6 +54,8 @@ public:
     bool updateScreenVersion();
 
 private:
+    static constexpr uint32_t kDeviceInfoRequestId = 0;
+
     Screen() = default;
 
     static void onRuntimeEvent(const Envelope& env, const screenlib::ScreenEventContext& ctx, void* userData);

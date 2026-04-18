@@ -4,10 +4,10 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "Screen/load_page.h"
+#include "Screen/page/main/load.h"
+#include "Screen/page/main/main.h"
 #include "Service/Log.h"
 #include "Service/PinList.h"
-#include "Screen/main.h"
 
 namespace machine32::screen {
 
@@ -77,7 +77,12 @@ bool Screen::showLoad() {
     if (isSilent()) {
         return true;
     }
-    return showPage<LoadPage>();
+    if (_runtime.currentPageId() == screenui::LoadBase::kPageId) {
+        return true;
+    }
+
+    const bool shown = showPage<Load>();
+    return shown;
 }
 
 bool Screen::showMain() {
@@ -88,7 +93,12 @@ bool Screen::showMain() {
     if (isSilent()) {
         return true;
     }
-    return showPage<Main>();
+    if (_runtime.currentPageId() == screenui::MainBase::kPageId) {
+        return true;
+    }
+
+    const bool shown = showPage<Main>();
+    return shown;
 }
 
 bool Screen::connectedPhysical() const {
@@ -104,7 +114,7 @@ bool Screen::updateScreenVersion() {
         _screenVersion = kUnknownScreenVersion;
         return false;
     }
-    return _runtime.screens().requestDeviceInfo(1);
+    return _runtime.screens().requestDeviceInfo(kDeviceInfoRequestId);
 }
 
 void Screen::onRuntimeEvent(const Envelope& env, const screenlib::ScreenEventContext& ctx, void* userData) {
