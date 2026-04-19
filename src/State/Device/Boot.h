@@ -12,24 +12,24 @@
 #include "Service/WiFiConfig.h"
 #include "Screen/Screen.h"
 #include "Screen/page/main/info.h"
+#include "Screen/page/main/INIT.h"
 #include "Screen/page/main/load.h"
 #include "Screen/page/main/main.h"
 #include "version.h"
-
-#include "UI/Main/pINIT.h"
 #include "State/State.h"
 #include "Controller/McpTrigger.h"
 #include "App/App.h"
 
 using machine32::screen::Info;
+using machine32::screen::Init;
 using machine32::screen::Load;
 using machine32::screen::Main;
 using machine32::screen::Screen;
 
-// Состояние начальной загрузки устройства.
+// РЎРѕСЃС‚РѕСЏРЅРёРµ РЅР°С‡Р°Р»СЊРЅРѕР№ Р·Р°РіСЂСѓР·РєРё СѓСЃС‚СЂРѕР№СЃС‚РІР°.
 class Boot : public State {
 private:
-    // Контекст загрузки, который живет между шагами boot-плана.
+    // РљРѕРЅС‚РµРєСЃС‚ Р·Р°РіСЂСѓР·РєРё, РєРѕС‚РѕСЂС‹Р№ Р¶РёРІРµС‚ РјРµР¶РґСѓ С€Р°РіР°РјРё boot-РїР»Р°РЅР°.
     struct BootContext {
         bool wifiConnected = false;
         bool screenReady = false;
@@ -39,43 +39,43 @@ private:
         State::Type abortState = State::Type::NULL_STATE;
     };
 
-    // Возвращает общий контекст текущей загрузки.
+    // Р’РѕР·РІСЂР°С‰Р°РµС‚ РѕР±С‰РёР№ РєРѕРЅС‚РµРєСЃС‚ С‚РµРєСѓС‰РµР№ Р·Р°РіСЂСѓР·РєРё.
     static BootContext& context() {
         static BootContext ctx;
         return ctx;
     }
 
-    // Сбрасывает контекст перед новым запуском BOOT.
+    // РЎР±СЂР°СЃС‹РІР°РµС‚ РєРѕРЅС‚РµРєСЃС‚ РїРµСЂРµРґ РЅРѕРІС‹Рј Р·Р°РїСѓСЃРєРѕРј BOOT.
     static void resetContext() {
         context() = BootContext();
     }
 
-    // Запрашивает аварийный выход из BOOT в указанное состояние.
+    // Р—Р°РїСЂР°С€РёРІР°РµС‚ Р°РІР°СЂРёР№РЅС‹Р№ РІС‹С…РѕРґ РёР· BOOT РІ СѓРєР°Р·Р°РЅРЅРѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ.
     static void requestAbort(State::Type state) {
         BootContext& ctx = context();
         ctx.abortRequested = true;
         ctx.abortState = state;
     }
 
-    // Запрашивает остановку BOOT без перехода в другое состояние.
+    // Р—Р°РїСЂР°С€РёРІР°РµС‚ РѕСЃС‚Р°РЅРѕРІРєСѓ BOOT Р±РµР· РїРµСЂРµС…РѕРґР° РІ РґСЂСѓРіРѕРµ СЃРѕСЃС‚РѕСЏРЅРёРµ.
     static void requestHalt() {
         context().haltRequested = true;
     }
 
-    // Пишет служебный статус загрузки в лог.
+    // РџРёС€РµС‚ СЃР»СѓР¶РµР±РЅС‹Р№ СЃС‚Р°С‚СѓСЃ Р·Р°РіСЂСѓР·РєРё РІ Р»РѕРі.
     static void setStatus(const String& text) {
         Log::D("BOOT: %s", text.c_str());
     }
 
-    // Пишет ошибочный статус загрузки в лог.
+    // РџРёС€РµС‚ РѕС€РёР±РѕС‡РЅС‹Р№ СЃС‚Р°С‚СѓСЃ Р·Р°РіСЂСѓР·РєРё РІ Р»РѕРі.
     static void setStatusFail(const String& text) {
         Log::E("BOOT: %s", text.c_str());
     }
 public:
-    // Создает состояние BOOT.
+    // РЎРѕР·РґР°РµС‚ СЃРѕСЃС‚РѕСЏРЅРёРµ BOOT.
     Boot() : State(State::Type::BOOT) {}
 
-    // Формирует пошаговый план загрузки устройства.
+    // Р¤РѕСЂРјРёСЂСѓРµС‚ РїРѕС€Р°РіРѕРІС‹Р№ РїР»Р°РЅ Р·Р°РіСЂСѓР·РєРё СѓСЃС‚СЂРѕР№СЃС‚РІР°.
     void oneRun() override {
         State::oneRun();
         resetContext();
@@ -100,7 +100,7 @@ public:
 
     }
 
-    // Выполняет boot-план и удерживает BOOT, пока открыт новый экран Info.
+    // Р’С‹РїРѕР»РЅСЏРµС‚ boot-РїР»Р°РЅ Рё СѓРґРµСЂР¶РёРІР°РµС‚ BOOT, РїРѕРєР° РѕС‚РєСЂС‹С‚ РЅРѕРІС‹Р№ СЌРєСЂР°РЅ Info.
     State* run() override {
         PlanManager& plan = App::plan();
         BootContext& boot = context();
@@ -122,10 +122,10 @@ public:
             App::mode() = Mode::NORMAL;
             App::diag().clearErrors();
             if (*App::cfg().checkSystem == 1) {
-                setStatus("Проверка устройства");
+                setStatus("РџСЂРѕРІРµСЂРєР° СѓСЃС‚СЂРѕР№СЃС‚РІР°");
                 return Factory(State::Type::CHECK);
             }
-            ESPUpdate::getInstance().markCurrentFirmwareValid(); // Если не CHECK_SYSTEM то считаем что загрузка прошла успешно и валидируем новую прошивку, что бы при следующей загрузки не было проверки и возможного отката.
+            ESPUpdate::getInstance().markCurrentFirmwareValid(); // Р•СЃР»Рё РЅРµ CHECK_SYSTEM С‚Рѕ СЃС‡РёС‚Р°РµРј С‡С‚Рѕ Р·Р°РіСЂСѓР·РєР° РїСЂРѕС€Р»Р° СѓСЃРїРµС€РЅРѕ Рё РІР°Р»РёРґРёСЂСѓРµРј РЅРѕРІСѓСЋ РїСЂРѕС€РёРІРєСѓ, С‡С‚Рѕ Р±С‹ РїСЂРё СЃР»РµРґСѓСЋС‰РµР№ Р·Р°РіСЂСѓР·РєРё РЅРµ Р±С‹Р»Рѕ РїСЂРѕРІРµСЂРєРё Рё РІРѕР·РјРѕР¶РЅРѕРіРѕ РѕС‚РєР°С‚Р°.
             return Factory(State::Type::IDLE);
         }
 
@@ -133,7 +133,7 @@ public:
     }
 
 private:
-    // Пишет стартовую служебную информацию о контроллере.
+    // РџРёС€РµС‚ СЃС‚Р°СЂС‚РѕРІСѓСЋ СЃР»СѓР¶РµР±РЅСѓСЋ РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ РєРѕРЅС‚СЂРѕР»Р»РµСЂРµ.
     static bool LogStart() {
         Log::L(" === START v.%s", Version::makeDeviceVersion(NexUpdate::getInstance().getCurrentVersion()).c_str());
         Log::D("ESP32 Chip: %s Rev %d", ESP.getChipModel(), ESP.getChipRevision());
@@ -141,7 +141,7 @@ private:
         return true;
     }
 
-    // Инициализирует новый экранный runtime.
+    // РРЅРёС†РёР°Р»РёР·РёСЂСѓРµС‚ РЅРѕРІС‹Р№ СЌРєСЂР°РЅРЅС‹Р№ runtime.
     static bool InitScreen() {
         BootContext& boot = context();
         boot.screenReady = false;
@@ -157,11 +157,11 @@ private:
         return true;
     }
 
-    // Показывает экран загрузки через новый класс страницы.
+    // РџРѕРєР°Р·С‹РІР°РµС‚ СЌРєСЂР°РЅ Р·Р°РіСЂСѓР·РєРё С‡РµСЂРµР· РЅРѕРІС‹Р№ РєР»Р°СЃСЃ СЃС‚СЂР°РЅРёС†С‹.
     static bool ShowLoad() {
         if (!context().screenReady) return true;
 
-        setStatus("Загрузка интерфейса");
+        setStatus("Р—Р°РіСЂСѓР·РєР° РёРЅС‚РµСЂС„РµР№СЃР°");
         if (!Load::show()) {
             Log::E(" === ERROR ShowLoad: %s", Screen::getInstance().lastError());
             requestAbort(State::Type::NULL_STATE);
@@ -169,22 +169,22 @@ private:
         return true;
     }
 
-    // Инициализирует файловую систему устройства.
+    // РРЅРёС†РёР°Р»РёР·РёСЂСѓРµС‚ С„Р°Р№Р»РѕРІСѓСЋ СЃРёСЃС‚РµРјСѓ СѓСЃС‚СЂРѕР№СЃС‚РІР°.
     static bool InitFileSystem() {
-        setStatus("Инициализация файловой системы");
+        setStatus("РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ С„Р°Р№Р»РѕРІРѕР№ СЃРёСЃС‚РµРјС‹");
         if (FileSystem::init(true)) {
             return true;
         }
 
-        setStatusFail("Ошибка файловой системы");
+        setStatusFail("РћС€РёР±РєР° С„Р°Р№Р»РѕРІРѕР№ СЃРёСЃС‚РµРјС‹");
         Log::E(" === ERROR FileSystem Init ");
         requestAbort(State::Type::NULL_STATE);
         return true;
     }
 
-    // Инициализирует NVS и обрабатывает счетчик неудачных загрузок.
+    // РРЅРёС†РёР°Р»РёР·РёСЂСѓРµС‚ NVS Рё РѕР±СЂР°Р±Р°С‚С‹РІР°РµС‚ СЃС‡РµС‚С‡РёРє РЅРµСѓРґР°С‡РЅС‹С… Р·Р°РіСЂСѓР·РѕРє.
     static bool InitNVS() {
-        setStatus("Инициализация NVS");
+        setStatus("РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ NVS");
         NVS& nvs = NVS::getInstance();
         nvs.init();
 
@@ -200,7 +200,7 @@ private:
             }
             nvs.setInt("boot_count", 0, "boot");
             nvs.setInt("ota_pending", 0, "boot");
-            Info::showInfo("", "Что-то пошло не так!", "Проверьте параметры", [](){pINIT::getInstance().show();});
+            Info::showInfo("", "Р§С‚Рѕ-С‚Рѕ РїРѕС€Р»Рѕ РЅРµ С‚Р°Рє!", "РџСЂРѕРІРµСЂСЊС‚Рµ РїР°СЂР°РјРµС‚СЂС‹", []() { Init::show(); });
             requestAbort(State::Type::NULL_STATE);
             return true;
         }
@@ -208,41 +208,41 @@ private:
         return true;
     }
 
-    // Загружает конфигурацию и выбирает тип машины.
+    // Р—Р°РіСЂСѓР¶Р°РµС‚ РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ Рё РІС‹Р±РёСЂР°РµС‚ С‚РёРї РјР°С€РёРЅС‹.
     static bool LoadConfig() {
-        setStatus("Загрузка конфигурации");
+        setStatus("Р—Р°РіСЂСѓР·РєР° РєРѕРЅС„РёРіСѓСЂР°С†РёРё");
         if (Core::config.load(!context().screenReady)) {
             String machineError;
             String selectedMachine = *App::cfg().machineName;
             if (!App::machine().selectByName(selectedMachine, &machineError)) {
                 setStatusFail(machineError);
                 Log::E(" === ERROR Machine Select: %s", machineError.c_str());
-                pINIT::getInstance().show();
+                Init::show();
                 requestAbort(State::Type::NULL_STATE);
                 return true;
             }
             return true;
         }
 
-        setStatusFail("Ошибка загруки config"); //TODO надо сделать что бы при этой ошибке http был доступен и можно было исправить config
+        setStatusFail("РћС€РёР±РєР° Р·Р°РіСЂСѓРєРё config"); //TODO РЅР°РґРѕ СЃРґРµР»Р°С‚СЊ С‡С‚Рѕ Р±С‹ РїСЂРё СЌС‚РѕР№ РѕС€РёР±РєРµ http Р±С‹Р» РґРѕСЃС‚СѓРїРµРЅ Рё РјРѕР¶РЅРѕ Р±С‹Р»Рѕ РёСЃРїСЂР°РІРёС‚СЊ config
         Log::E(" === ERROR Core::config.load");
-        Core::config.print_config();  // отладка - выведем что в config при ошибке
-        pINIT::getInstance().show();
+        Core::config.print_config();  // РѕС‚Р»Р°РґРєР° - РІС‹РІРµРґРµРј С‡С‚Рѕ РІ config РїСЂРё РѕС€РёР±РєРµ
+        Init::show();
         requestAbort(State::Type::NULL_STATE);
         return true;
     }
 
-    // Подключает устройство к Wi-Fi при включенной настройке.
+    // РџРѕРґРєР»СЋС‡Р°РµС‚ СѓСЃС‚СЂРѕР№СЃС‚РІРѕ Рє Wi-Fi РїСЂРё РІРєР»СЋС‡РµРЅРЅРѕР№ РЅР°СЃС‚СЂРѕР№РєРµ.
     static bool ConnectWiFi() {
-        setStatus("Подключение к Wi-Fi");
+        setStatus("РџРѕРґРєР»СЋС‡РµРЅРёРµ Рє Wi-Fi");
         BootContext& boot = context();
         boot.wifiConnected = (*App::cfg().connectWifi == 1) && WiFiConfig::getInstance().begin();
         return true;
     }
 
-    // Проверяет наличие обновлений ESP-прошивки.
+    // РџСЂРѕРІРµСЂСЏРµС‚ РЅР°Р»РёС‡РёРµ РѕР±РЅРѕРІР»РµРЅРёР№ ESP-РїСЂРѕС€РёРІРєРё.
     static bool UpdateESP() {
-        setStatus("Проверка обновлений прошивки");
+        setStatus("РџСЂРѕРІРµСЂРєР° РѕР±РЅРѕРІР»РµРЅРёР№ РїСЂРѕС€РёРІРєРё");
         if (!context().wifiConnected) return true;
 
         if ((*App::cfg().autoUpdate == 1) && (*App::cfg().updateEsp == 1)) {
@@ -256,7 +256,7 @@ private:
         return true;
     }
 
-    // Запрашивает у экрана версию UI и сохраняет ее в сервисе версий.
+    // Р—Р°РїСЂР°С€РёРІР°РµС‚ Сѓ СЌРєСЂР°РЅР° РІРµСЂСЃРёСЋ UI Рё СЃРѕС…СЂР°РЅСЏРµС‚ РµРµ РІ СЃРµСЂРІРёСЃРµ РІРµСЂСЃРёР№.
     static bool SetScreenVersion() {
         Screen& screen = Screen::getInstance();
         screen.updateScreenVersion();
@@ -265,32 +265,32 @@ private:
         return true;
     }
 
-    // Запускает HTTP-сервер после подключения к сети.
+    // Р—Р°РїСѓСЃРєР°РµС‚ HTTP-СЃРµСЂРІРµСЂ РїРѕСЃР»Рµ РїРѕРґРєР»СЋС‡РµРЅРёСЏ Рє СЃРµС‚Рё.
     static bool StartHttp() {
-        setStatus("Запуск HTTP сервера");
+        setStatus("Р—Р°РїСѓСЃРє HTTP СЃРµСЂРІРµСЂР°");
         if (context().wifiConnected && (*App::cfg().httpServer == 1)) {
             HServer::getInstance().begin();
         }
         return true;
     }
 
-    // Подключает MQTT-клиент после появления сети.
+    // РџРѕРґРєР»СЋС‡Р°РµС‚ MQTT-РєР»РёРµРЅС‚ РїРѕСЃР»Рµ РїРѕСЏРІР»РµРЅРёСЏ СЃРµС‚Рё.
     static bool ConnectMQTT() {
-        setStatus("Подключение к серверу");
+        setStatus("РџРѕРґРєР»СЋС‡РµРЅРёРµ Рє СЃРµСЂРІРµСЂСѓ");
         if (context().wifiConnected) {
-            MQTTc::getInstance().connect(); // подключится
+            MQTTc::getInstance().connect(); // РїРѕРґРєР»СЋС‡РёС‚СЃСЏ
         }
         return true;
     }
 
-    // Загружает данные приложения из постоянного хранилища.
+    // Р—Р°РіСЂСѓР¶Р°РµС‚ РґР°РЅРЅС‹Рµ РїСЂРёР»РѕР¶РµРЅРёСЏ РёР· РїРѕСЃС‚РѕСЏРЅРЅРѕРіРѕ С…СЂР°РЅРёР»РёС‰Р°.
     static bool LoadData() {
-        setStatus("Загрузка данных");
-        // проверка лицензии
+        setStatus("Р—Р°РіСЂСѓР·РєР° РґР°РЅРЅС‹С…");
+        // РїСЂРѕРІРµСЂРєР° Р»РёС†РµРЅР·РёРё
         /*
         if (!Licence::getInstance().isValid()) {
-            pLoad::getInstance().text("Лицензия не верная. Работа не возможна!");
-            Log::L(" === Лицензия не верная");
+            pLoad::getInstance().text("Р›РёС†РµРЅР·РёСЏ РЅРµ РІРµСЂРЅР°СЏ. Р Р°Р±РѕС‚Р° РЅРµ РІРѕР·РјРѕР¶РЅР°!");
+            Log::L(" === Р›РёС†РµРЅР·РёСЏ РЅРµ РІРµСЂРЅР°СЏ");
             requestAbort(State::Type::NULL_STATE);
             return true;
         }*/
@@ -303,18 +303,18 @@ private:
         return true;
     }
 
-    // Инициализирует реестр устройств и проверяет его совместимость с машиной.
+    // РРЅРёС†РёР°Р»РёР·РёСЂСѓРµС‚ СЂРµРµСЃС‚СЂ СѓСЃС‚СЂРѕР№СЃС‚РІ Рё РїСЂРѕРІРµСЂСЏРµС‚ РµРіРѕ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚СЊ СЃ РјР°С€РёРЅРѕР№.
     static bool InitRegistry() {
-        setStatus("Инициализация устройств");
+        setStatus("РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ СѓСЃС‚СЂРѕР№СЃС‚РІ");
         String registry_error_message;
-        if (!App::reg().init(&registry_error_message)) { // Инициализация устройства
+        if (!App::reg().init(&registry_error_message)) { // РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ СѓСЃС‚СЂРѕР№СЃС‚РІР°
             setStatusFail(registry_error_message);
             Log::E(" === ERROR Registry Init: %s", registry_error_message.c_str());
             requestAbort(State::Type::NULL_STATE);
             return true;
         }
 
-        // А теперь проверяем подходит ли то что загрузили к этому типу машины 
+        // Рђ С‚РµРїРµСЂСЊ РїСЂРѕРІРµСЂСЏРµРј РїРѕРґС…РѕРґРёС‚ Р»Рё С‚Рѕ С‡С‚Рѕ Р·Р°РіСЂСѓР·РёР»Рё Рє СЌС‚РѕРјСѓ С‚РёРїСѓ РјР°С€РёРЅС‹ 
         Machine& machine = App::machine();
         String machineError;
         if (!machine.bindRegistry(App::reg(), &machineError)) {
@@ -327,7 +327,7 @@ private:
         MachineSpec::Report specReport = machine.validateRegistry(App::reg());
         for (const String& warning : specReport.warnings) {
             Log::D("%s", warning.c_str());
-            App::diag().addWarning(State::ErrorCode::CONFIG_ERROR, "Конфигурация устройства неверная", warning);
+            App::diag().addWarning(State::ErrorCode::CONFIG_ERROR, "РљРѕРЅС„РёРіСѓСЂР°С†РёСЏ СѓСЃС‚СЂРѕР№СЃС‚РІР° РЅРµРІРµСЂРЅР°СЏ", warning);
         }
         if (!machine.shouldContinueBoot(*App::cfg().allowMissingHardware == 1)) {
             String failText = "Machine registry validation failed";
@@ -346,7 +346,7 @@ private:
             Log::E("[Machine] Registry validation has blocking errors, but ALLOW_MISSING_HARDWARE=1. Continue boot.");
             for (const String& err : specReport.errors) {
                 Log::D("[Machine][warn-only] %s", err.c_str());
-                App::diag().addWarning(State::ErrorCode::CONFIG_ERROR, "Работа с ограничениями", err);
+                App::diag().addWarning(State::ErrorCode::CONFIG_ERROR, "Р Р°Р±РѕС‚Р° СЃ РѕРіСЂР°РЅРёС‡РµРЅРёСЏРјРё", err);
             }
         }
         if (!machine.readyForMotion()) {
@@ -360,9 +360,9 @@ private:
         return true;
     }
 
-    // Регистрирует все системные триггеры после инициализации.
+    // Р РµРіРёСЃС‚СЂРёСЂСѓРµС‚ РІСЃРµ СЃРёСЃС‚РµРјРЅС‹Рµ С‚СЂРёРіРіРµСЂС‹ РїРѕСЃР»Рµ РёРЅРёС†РёР°Р»РёР·Р°С†РёРё.
     static bool RegisterTriggers() {
-        setStatus("Регистрация триггеров");
+        setStatus("Р РµРіРёСЃС‚СЂР°С†РёСЏ С‚СЂРёРіРіРµСЂРѕРІ");
         Trigger::getInstance().registerTrigger();
         McpTrigger::getInstance().init();
         return true;

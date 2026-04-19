@@ -8,12 +8,10 @@
 namespace machine32::screen {
 
 // Экран ввода, повторяющий контракт старого pINPUT на новом runtime.
-class Input : public screenui::InputBase {
+class Input : public screenui::InputBase<Input> {
 public:
-    // Тип обработчика подтверждения введенного значения.
     using InputCallback = std::function<void(const String&)>;
 
-    // Показывает экран ввода и сохраняет обработчики кнопок.
     static bool showInput(const String& title,
                           const String& info1,
                           const String& info2,
@@ -31,14 +29,13 @@ public:
         state.onCancel = onCancel;
         state.showField = showField;
         state.autoBack = autoBack;
-        return Screen::getInstance().showPage<Input>();
+        return Input::show();
     }
 
 protected:
-    // Заполняет экран сохраненным состоянием, как это делал старый pINPUT.
     void onShow() override {
         const DialogState& state = dialogState();
-        element(txt_OBJ21).setText(state.title.c_str());
+        element(pnl_INPUT_TITLE_1).setText(state.title.c_str());
         element(btn_INPUT_FIELD1).setText(state.info1.c_str());
         element(btn_INPUT_FIELD2).setText(state.info2.c_str());
 
@@ -55,7 +52,16 @@ protected:
         }
     }
 
-    // Подтверждает текущее значение и выполняет сохраненный обработчик.
+    void onInputText(uint32_t elementId, const char* text) override {
+        if (elementId != btn_INPUT_FIELD3) {
+            return;
+        }
+
+        DialogState& state = dialogState();
+        state.value = text == nullptr ? "" : text;
+        element(btn_INPUT_FIELD3).setText(state.value.c_str());
+    }
+
     void onClickInputOk() override {
         DialogState& state = dialogState();
         InputCallback callback = state.onOk;
@@ -71,7 +77,6 @@ protected:
         }
     }
 
-    // Отменяет ввод и выполняет сохраненный обработчик.
     void onClickInputCancel() override {
         DialogState& state = dialogState();
         std::function<void()> callback = state.onCancel;
@@ -87,7 +92,6 @@ protected:
     }
 
 private:
-    // Состояние диалога ввода между открытиями страницы.
     struct DialogState {
         String title;
         String info1;
@@ -99,13 +103,11 @@ private:
         bool autoBack = true;
     };
 
-    // Возвращает общее сохраненное состояние экрана ввода.
     static DialogState& dialogState() {
         static DialogState state;
         return state;
     }
 
-    // Очищает обработчики после завершения диалога.
     static void resetState(DialogState& state) {
         state.onOk = nullptr;
         state.onCancel = nullptr;

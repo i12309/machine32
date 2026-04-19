@@ -10,7 +10,6 @@ namespace machine32::screen {
 // Экран информационного диалога, повторяющий контракт старого pINFO.
 class Info : public screenui::InfoBase<Info> {
 public:
-    // Показывает информационный диалог и сохраняет обработчики кнопок.
     static bool showInfo(String text1 = "", String text2 = "", String text3 = "",
                          std::function<void()> onOk = nullptr,
                          std::function<void()> onCancel = nullptr,
@@ -30,10 +29,9 @@ public:
     }
 
 protected:
-    // Заполняет экран сохраненным состоянием диалога.
     void onShow() override {
         const DialogState& state = dialogState();
-        element(txt_OBJ20).setText("");
+        element(pnl_INFO_TITLE).setText("");
         element(btn_INFO_FIELD1).setText(state.text1.c_str());
         element(btn_INFO_FIELD2).setText(state.text2.c_str());
         element(btn_INFO_FIELD3).setText(state.text3.c_str());
@@ -41,7 +39,6 @@ protected:
         applyCancelVisibility(state.showCancel);
     }
 
-    // Обрабатывает подтверждение так же, как в старом pINFO.
     void onClickInfoOk() override {
         DialogState& state = dialogState();
         std::function<void()> callback = state.onOk;
@@ -54,7 +51,6 @@ protected:
         Screen::getInstance().back();
     }
 
-    // Обрабатывает отмену так же, как в старом pINFO.
     void onClickInfoCancel() override {
         DialogState& state = dialogState();
         std::function<void()> callback = state.onCancel;
@@ -68,7 +64,6 @@ protected:
     }
 
 private:
-    // Общее состояние диалога между открытиями страницы.
     struct DialogState {
         String text1;
         String text2;
@@ -80,19 +75,16 @@ private:
         String cancelText;
     };
 
-    // Возвращает общее сохраненное состояние диалога.
     static DialogState& dialogState() {
         static DialogState state;
         return state;
     }
 
-    // Очищает колбэки после нажатия кнопки.
     static void resetCallbacks(DialogState& state) {
         state.onOk = nullptr;
         state.onCancel = nullptr;
     }
 
-    // Применяет подписи кнопок по правилам старого pINFO.
     void applyButtonTexts(const DialogState& state) {
         const String okLabel = state.okText.length() > 0 ? state.okText : "OK";
         element(btn_INFO_OK).setText(okLabel.c_str());
@@ -103,7 +95,6 @@ private:
         }
     }
 
-    // Показывает или скрывает кнопку отмены.
     void applyCancelVisibility(bool visible) {
         element(btn_INFO_CANCEL).setVisible(visible);
     }
