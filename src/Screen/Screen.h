@@ -91,6 +91,9 @@ private:
     bool _initialized = false;
     bool _physicalEnabled = false;
     bool _webEnabled = false;
+    bool _connectionStateInitialized = false;
+    bool _lastPhysicalConnected = false;
+    bool _lastWebConnected = false;
     bool _hasDeviceInfo = false;
     int _screenVersion = kUnknownScreenVersion;
     DeviceInfo _deviceInfo = DeviceInfo_init_zero;

@@ -9,6 +9,40 @@
 
 namespace machine32::screen {
 
+namespace {
+
+const char* payloadName(pb_size_t tag) {
+    switch (tag) {
+        case Envelope_show_page_tag: return "show_page";
+        case Envelope_set_text_tag: return "set_text";
+        case Envelope_set_color_tag: return "set_color";
+        case Envelope_set_visible_tag: return "set_visible";
+        case Envelope_set_value_tag: return "set_value";
+        case Envelope_set_batch_tag: return "set_batch";
+        case Envelope_button_event_tag: return "button_event";
+        case Envelope_input_event_tag: return "input_event";
+        case Envelope_heartbeat_tag: return "heartbeat";
+        case Envelope_hello_tag: return "hello";
+        case Envelope_request_device_info_tag: return "request_device_info";
+        case Envelope_device_info_tag: return "device_info";
+        case Envelope_request_current_page_tag: return "request_current_page";
+        case Envelope_current_page_tag: return "current_page";
+        case Envelope_request_page_state_tag: return "request_page_state";
+        case Envelope_page_state_tag: return "page_state";
+        case Envelope_request_element_state_tag: return "request_element_state";
+        case Envelope_element_state_tag: return "element_state";
+        default: return "unknown";
+    }
+}
+
+const char* endpointName(const screenlib::ScreenEventContext& ctx) {
+    if (ctx.isPhysical) return "physical";
+    if (ctx.isWeb) return "web";
+    return "unknown";
+}
+
+}  // namespace
+
 // Возвращает общий экземпляр фасада экрана.
 Screen& Screen::getInstance() {
     static Screen instance;
@@ -43,6 +77,12 @@ bool Screen::init(uint8_t modeValue) {
 
     screenlib::ScreenConfig cfg{};
     buildConfig(usePhysical, useWeb, cfg);
+    if (cfg.physical.enabled && cfg.physical.type == screenlib::OutputType::Uart) {
+        Log::D("[Screen] physical uart config: baud=%lu rx=%d tx=%d",
+               static_cast<unsigned long>(cfg.physical.uart.baud),
+               static_cast<int>(cfg.physical.uart.rxPin),
+               static_cast<int>(cfg.physical.uart.txPin));
+    }
     _runtime.setEventObserver(&Screen::onRuntimeEvent, this);
 
     if (!_runtime.init(cfg)) {
@@ -68,6 +108,19 @@ void Screen::tick() {
         return;
     }
     _runtime.tick();
+
+    const bool physical = _physicalEnabled && _runtime.connectedPhysical();
+    const bool web = _webEnabled && _runtime.connectedWeb();
+    if (!_connectionStateInitialized ||
+        _lastPhysicalConnected != physical ||
+        _lastWebConnected != web) {
+        Log::D("[Screen] link state changed: physical=%d web=%d",
+               physical ? 1 : 0,
+               web ? 1 : 0);
+        _lastPhysicalConnected = physical;
+        _lastWebConnected = web;
+        _connectionStateInitialized = true;
+    }
 }
 
 // Возвращает runtime на предыдущую страницу без знания бизнес-смысла перехода.
@@ -94,7 +147,11 @@ bool Screen::updateScreenVersion() {
         _screenVersion = kUnknownScreenVersion;
         return false;
     }
-    return _runtime.screens().requestDeviceInfo(kDeviceInfoRequestId);
+    const bool requested = _runtime.screens().requestDeviceInfo(kDeviceInfoRequestId);
+    Log::D("[Screen] tx request_device_info request_id=%lu status=%s",
+           static_cast<unsigned long>(kDeviceInfoRequestId),
+           requested ? "ok" : "fail");
+    return requested;
 }
 
 // Перенаправляет событие runtime в экземпляр фасада.
@@ -107,6 +164,12 @@ void Screen::onRuntimeEvent(const Envelope& env, const screenlib::ScreenEventCon
 
 // Разбирает только системные события runtime.
 void Screen::handleRuntimeEvent(const Envelope& env, const screenlib::ScreenEventContext& ctx) {
+    Log::D("[Screen] rx payload=%s(%u) from %s endpoint=%u",
+           payloadName(env.which_payload),
+           static_cast<unsigned>(env.which_payload),
+           endpointName(ctx),
+           static_cast<unsigned>(ctx.endpointId));
+
     switch (env.which_payload) {
         case Envelope_hello_tag:
             if (env.payload.hello.has_device_info) {
@@ -130,7 +193,7 @@ void Screen::applyDeviceInfo(const DeviceInfo& info, const screenlib::ScreenEven
     _screenVersion = parseScreenVersion(info.ui_version);
 
     Log::D("[Screen] device info from %s: fw='%s' ui='%s' type='%s' client='%s'",
-           ctx.isPhysical ? "physical" : (ctx.isWeb ? "web" : "unknown"),
+           endpointName(ctx),
            info.fw_version,
            info.ui_version,
            info.screen_type,
@@ -180,6 +243,9 @@ void Screen::reset() {
     _initialized = false;
     _physicalEnabled = false;
     _webEnabled = false;
+    _connectionStateInitialized = false;
+    _lastPhysicalConnected = false;
+    _lastWebConnected = false;
     _hasDeviceInfo = false;
     _screenVersion = kUnknownScreenVersion;
     _deviceInfo = DeviceInfo{};
