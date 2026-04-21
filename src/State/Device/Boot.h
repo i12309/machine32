@@ -141,7 +141,7 @@ private:
         return true;
     }
 
-    // РРЅРёС†РёР°Р»РёР·РёСЂСѓРµС‚ РЅРѕРІС‹Р№ СЌРєСЂР°РЅРЅС‹Р№ runtime.
+    // Инициализирует новый экранный runtime.
     static bool InitScreen() {
         BootContext& boot = context();
         boot.screenReady = false;
@@ -169,9 +169,9 @@ private:
         return true;
     }
 
-    // РРЅРёС†РёР°Р»РёР·РёСЂСѓРµС‚ С„Р°Р№Р»РѕРІСѓСЋ СЃРёСЃС‚РµРјСѓ СѓСЃС‚СЂРѕР№СЃС‚РІР°.
+    // Инициализирует файловую систему устройства.
     static bool InitFileSystem() {
-        setStatus("РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ С„Р°Р№Р»РѕРІРѕР№ СЃРёСЃС‚РµРјС‹");
+        setStatus("Инициализация файловой системы");
         if (FileSystem::init(true)) {
             return true;
         }
@@ -182,9 +182,9 @@ private:
         return true;
     }
 
-    // РРЅРёС†РёР°Р»РёР·РёСЂСѓРµС‚ NVS Рё РѕР±СЂР°Р±Р°С‚С‹РІР°РµС‚ СЃС‡РµС‚С‡РёРє РЅРµСѓРґР°С‡РЅС‹С… Р·Р°РіСЂСѓР·РѕРє.
+    // Инициализирует NVS и обрабатывает счетчик неудачных загрузок.
     static bool InitNVS() {
-        setStatus("РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ NVS");
+        setStatus("Инициализация NVS");
         NVS& nvs = NVS::getInstance();
         nvs.init();
 
@@ -303,11 +303,11 @@ private:
         return true;
     }
 
-    // РРЅРёС†РёР°Р»РёР·РёСЂСѓРµС‚ СЂРµРµСЃС‚СЂ СѓСЃС‚СЂРѕР№СЃС‚РІ Рё РїСЂРѕРІРµСЂСЏРµС‚ РµРіРѕ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚СЊ СЃ РјР°С€РёРЅРѕР№.
+    // Инициализирует реестр устройств и проверяет его совместимость с машиной.
     static bool InitRegistry() {
-        setStatus("РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ СѓСЃС‚СЂРѕР№СЃС‚РІ");
+        setStatus("Инициализация устройств");
         String registry_error_message;
-        if (!App::reg().init(&registry_error_message)) { // РРЅРёС†РёР°Р»РёР·Р°С†РёСЏ СѓСЃС‚СЂРѕР№СЃС‚РІР°
+        if (!App::reg().init(&registry_error_message)) { // Инициализация устройства
             setStatusFail(registry_error_message);
             Log::E(" === ERROR Registry Init: %s", registry_error_message.c_str());
             requestAbort(State::Type::NULL_STATE);
