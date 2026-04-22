@@ -14,27 +14,24 @@ class Main : public screenui::MainBase<Main> {
 protected:
     // Подготавливает заглушку состояния главного меню.
     void onShow() override {
-        element(cnt_MAIN_MENU).setText("main ready");
+        
     }
 
     // Переключает заглушку раздела задания.
-    void onClickMainTask() override { setSection("task"); }
+    void onClickMainTask() override { }
     // Переключает заглушку раздела профилей.
-    void onClickMainProfile() override { setSection("profile"); }
+    void onClickMainProfile() override { }
     // Переключает заглушку раздела сети.
-    void onClickMainNet() override { setSection("network"); }
+    void onClickMainNet() override { }
     // Переключает заглушку сервисного раздела.
-    void onClickMainService() override { setSection("service"); }
+    void onClickMainService() override {  }
     // Переключает заглушку статистики.
-    void onClickMainStats() override { setSection("stats"); }
+    void onClickMainStats() override {  }
     // Переключает заглушку .
-    void onClickMainSupport() override { setSection("support"); }
+    void onClickMainSupport() override {  }
 
 private:
-    // Обновляет текстовый индикатор выбранного раздела.
-    void setSection(const char* text) {
-        element(cnt_MAIN_MENU).setText(text);
-    }
+
 };
 
 }  // namespace machine32::screen
