@@ -18,9 +18,7 @@ protected:
         _openedMain = false;
 
         Screen& screen = Screen::getInstance();
-        const String version = screen.hasDeviceInfo()
-            ? String(screen.screenUiVersion())
-            : Version::makeDeviceVersion(screen.getScreenVersion());
+        const String version = Version::makeDeviceVersion(screen.getScreenVersion());
         element(txt_LOAD_VERSION).setText(version.c_str());
         element(txt_LOAD_MA_CADDRESS).setText(WiFi.macAddress().c_str());
     }

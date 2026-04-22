@@ -37,7 +37,13 @@ private:
         bool abortRequested = false;
         bool haltRequested = false;
         State::Type abortState = State::Type::NULL_STATE;
+        uint32_t screenWaitStartedAt = 0;
+        uint32_t screenLastProbeAt = 0;
+        bool loadShown = false;
     };
+
+    static constexpr uint32_t kScreenReadyTimeoutMs = 8000;
+    static constexpr uint32_t kScreenProbeIntervalMs = 400;
 
     // Возвращает общий контекст текущей загрузки.
     static BootContext& context() {
@@ -145,6 +151,9 @@ private:
     static bool InitScreen() {
         BootContext& boot = context();
         boot.screenReady = false;
+        boot.loadShown = false;
+        boot.screenWaitStartedAt = millis();
+        boot.screenLastProbeAt = 0;
 
         Screen& screen = Screen::getInstance();
         if (!screen.init(static_cast<uint8_t>(Screen::Mode::PhysicalOnly))) {
@@ -159,12 +168,34 @@ private:
 
     // Показывает экран загрузки через новый класс страницы.
     static bool ShowLoad() {
-        if (!context().screenReady) return true;
+        BootContext& boot = context();
+        if (!boot.screenReady || boot.loadShown) return true;
+
+        Screen& screen = Screen::getInstance();
+        if (!screen.hasDeviceInfo()) {
+            const uint32_t now = millis();
+            if (boot.screenWaitStartedAt == 0) boot.screenWaitStartedAt = now;
+
+            if (now - boot.screenLastProbeAt >= kScreenProbeIntervalMs) {
+                screen.updateScreenVersion();
+                boot.screenLastProbeAt = now;
+            }
+
+            if (now - boot.screenWaitStartedAt < kScreenReadyTimeoutMs) {
+                App::plan().resetByActionName("ShowLoad");
+                return true;
+            }
+
+            Log::E("[BOOT] Screen device info timeout after %lu ms, continue without handshake.",
+                   static_cast<unsigned long>(kScreenReadyTimeoutMs));
+        }
 
         setStatus("Загрузка интерфейса");
         if (!Load::show()) {
             Log::E(" === ERROR ShowLoad: %s", Screen::getInstance().lastError());
             requestAbort(State::Type::NULL_STATE);
+        } else {
+            boot.loadShown = true;
         }
         return true;
     }
