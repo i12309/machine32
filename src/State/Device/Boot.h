@@ -11,8 +11,6 @@
 #include "Service/Stats.h"
 #include "Service/WiFiConfig.h"
 #include "Screen/Screen.h"
-#include "Screen/page/main/info.h"
-#include "Screen/page/main/INIT.h"
 #include "Screen/page/main/load.h"
 #include "Screen/page/main/main.h"
 #include "version.h"
@@ -20,8 +18,6 @@
 #include "Controller/McpTrigger.h"
 #include "App/App.h"
 
-using machine32::screen::Info;
-using machine32::screen::Init;
 using machine32::screen::Load;
 using machine32::screen::Main;
 using machine32::screen::Screen;
@@ -231,7 +227,8 @@ private:
             }
             nvs.setInt("boot_count", 0, "boot");
             nvs.setInt("ota_pending", 0, "boot");
-            Info::showInfo("", "Что-то пошло не так!", "Проверьте параметры", []() { Init::show(); });
+            // TODO object-model: вернуть Info/Init после миграции этих страниц.
+            Log::E("[BOOT] Info/Init pages are disabled during object-model migration");
             requestAbort(State::Type::NULL_STATE);
             return true;
         }
@@ -248,7 +245,8 @@ private:
             if (!App::machine().selectByName(selectedMachine, &machineError)) {
                 setStatusFail(machineError);
                 Log::E(" === ERROR Machine Select: %s", machineError.c_str());
-                Init::show();
+                // TODO object-model: вернуть Init::show() после миграции страницы Init.
+                Log::E("[BOOT] Init page is disabled during object-model migration");
                 requestAbort(State::Type::NULL_STATE);
                 return true;
             }
@@ -258,7 +256,8 @@ private:
         setStatusFail("Ошибка загруки config"); //TODO надо сделать что бы при этой ошибке http был доступен и можно было исправить config
         Log::E(" === ERROR Core::config.load");
         Core::config.print_config();  // отладка - выведем что в config при ошибке
-        Init::show();
+        // TODO object-model: вернуть Init::show() после миграции страницы Init.
+        Log::E("[BOOT] Init page is disabled during object-model migration");
         requestAbort(State::Type::NULL_STATE);
         return true;
     }
