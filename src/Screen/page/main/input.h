@@ -1,6 +1,5 @@
 #pragma once
 
-#include <cstring>
 #include <functional>
 
 #include "Screen/Screen.h"
@@ -39,7 +38,7 @@ public:
 protected:
     void onShow() override {
         const DialogState& state = dialogState();
-        setElementText(pnl_INPUT_TITLE_1.id(), state.title.c_str());
+        pnl_INPUT_TITLE_1.text = state.title.c_str();
         btn_INPUT_FIELD1.text = state.info1.c_str();
         btn_INPUT_FIELD2.text = state.info2.c_str();
 
@@ -90,22 +89,6 @@ private:
         state.onOk = nullptr;
         state.onCancel = nullptr;
         state.autoBack = true;
-    }
-
-    void setElementText(uint32_t elementId, const char* text) {
-        if (runtime() == nullptr) {
-            return;
-        }
-
-        const char* value = text == nullptr ? "" : text;
-        runtime()->model().setString(elementId, ELEMENT_ATTRIBUTE_TEXT, value);
-
-        ElementAttributeValue eav{};
-        eav.attribute = ELEMENT_ATTRIBUTE_TEXT;
-        eav.which_value = ElementAttributeValue_string_value_tag;
-        std::strncpy(eav.value.string_value, value, sizeof(eav.value.string_value) - 1);
-        eav.value.string_value[sizeof(eav.value.string_value) - 1] = '\0';
-        runtime()->sendSetAttribute(elementId, eav);
     }
 
     void handleOk() {

@@ -1,7 +1,5 @@
 #include "Screen/page/main/INIT.h"
 
-#include <cstring>
-
 #include <WiFi.h>
 #include <esp_system.h>
 
@@ -21,6 +19,7 @@ struct InitState {
     String group = "DEV";
     String name = "ESP32";
     String machineName;
+    String machineList;
     bool accessPoint = false;
     bool withTestData = false;
 };
@@ -28,22 +27,6 @@ struct InitState {
 InitState& initState() {
     static InitState state;
     return state;
-}
-
-void setElementText(screenlib::IPage& page, uint32_t elementId, const char* text) {
-    if (page.runtime() == nullptr) {
-        return;
-    }
-
-    const char* value = text == nullptr ? "" : text;
-    page.runtime()->model().setString(elementId, ELEMENT_ATTRIBUTE_TEXT, value);
-
-    ElementAttributeValue eav{};
-    eav.attribute = ELEMENT_ATTRIBUTE_TEXT;
-    eav.which_value = ElementAttributeValue_string_value_tag;
-    std::strncpy(eav.value.string_value, value, sizeof(eav.value.string_value) - 1);
-    eav.value.string_value[sizeof(eav.value.string_value) - 1] = '\0';
-    page.runtime()->sendSetAttribute(elementId, eav);
 }
 
 // Возвращает первую поддерживаемую машину из каталога.
@@ -374,10 +357,11 @@ void Init::onShow() {
     ensureInitDefaults();
     InitState& state = initState();
 
-    setElementText(*this, pnl_INIT_TITLE.id(), "Инициализация");
+    pnl_INIT_TITLE.text = "Инициализация";
     btn_INIT_HTTP.text = "HTTP";
     btn_INIT_OK.text = "Сохранить";
-    drp_INIT_MACHINE.text = supportedMachineList("\n").c_str();
+    state.machineList = supportedMachineList("\n");
+    drp_INIT_MACHINE.text = state.machineList.c_str();
     drp_INIT_MACHINE.value = supportedMachineIndex(state.machineName);
     btn_INIT_GROUP.text = state.group.c_str();
     btn_INIT_NAME.text = state.name.c_str();
