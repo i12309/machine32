@@ -1,9 +1,12 @@
 #pragma once
 
+#include <memory>
 #include <stdint.h>
 
 #include "proto/machine.pb.h"
-#include "runtime/SinglePageRuntime.h"
+#include "bridge/ScreenBridge.h"
+#include "link/ITransport.h"
+#include "runtime/PageRuntime.h"
 
 namespace machine32::screen {
 
@@ -35,7 +38,7 @@ public:
         if (!_initialized || isSilent()) {
             return false;
         }
-        return _runtime.start<T>();
+        return _runtime != nullptr && _runtime->navigateTo<T>();
     }
 
     // Возвращает предыдущую страницу, если runtime ее сохранил.
@@ -53,19 +56,15 @@ public:
     const char* lastError() const { return _lastError; }
 
     int getScreenVersion() const { return _screenVersion; }
-    bool hasDeviceInfo() const { return _hasDeviceInfo; }
+    bool hasDeviceInfo() const { return false; }
     const char* screenUiVersion() const { return _deviceInfo.ui_version; }
     const char* screenFwVersion() const { return _deviceInfo.fw_version; }
     // Запрашивает у экрана служебную информацию об устройстве.
     bool updateScreenVersion();
 
 private:
-    static constexpr uint32_t kDeviceInfoRequestId = 0;
+    Screen();
 
-    Screen() = default;
-
-    // Принимает события runtime и перенаправляет их в экземпляр класса.
-    static void onRuntimeEvent(const Envelope& env, const screenlib::ScreenEventContext& ctx, void* userData);
     // Приводит внешний режим к поддерживаемому набору значений.
     static Mode sanitizeMode(uint8_t mode);
     // Сообщает, доступен ли физический экран.
@@ -75,18 +74,22 @@ private:
 
     // Сбрасывает внутреннее состояние фасада.
     void reset();
-    // Обрабатывает системные события runtime.
-    void handleRuntimeEvent(const Envelope& env, const screenlib::ScreenEventContext& ctx);
-    // Применяет полученную от экрана служебную информацию.
-    void applyDeviceInfo(const DeviceInfo& info, const screenlib::ScreenEventContext& ctx);
     // Извлекает числовую версию из текстового значения.
     static int parseScreenVersion(const char* text);
     // Выбирает доступные выходы под запрошенный режим работы.
     bool selectOutputs(Mode requestedMode, bool& usePhysical, bool& useWeb);
     // Собирает конфигурацию runtime для выбранных выходов.
     void buildConfig(bool usePhysical, bool useWeb, screenlib::ScreenConfig& cfg) const;
+    // Поднимает транспорт и bridge физического экрана.
+    bool bootstrapPhysicalBridge(const screenlib::ScreenConfig& cfg);
+    // Поднимает транспорт и bridge web-экрана.
+    bool bootstrapWebBridge(const screenlib::ScreenConfig& cfg);
 
-    screenlib::SinglePageRuntime _runtime;
+    std::unique_ptr<screenlib::PageRuntime> _runtime;
+    std::unique_ptr<ITransport> _physicalTransport;
+    std::unique_ptr<ITransport> _webTransport;
+    std::unique_ptr<ScreenBridge> _physicalBridge;
+    std::unique_ptr<ScreenBridge> _webBridge;
     Mode _mode = Mode::Silent;
     bool _initialized = false;
     bool _physicalEnabled = false;
@@ -94,7 +97,6 @@ private:
     bool _connectionStateInitialized = false;
     bool _lastPhysicalConnected = false;
     bool _lastWebConnected = false;
-    bool _hasDeviceInfo = false;
     int _screenVersion = kUnknownScreenVersion;
     DeviceInfo _deviceInfo = DeviceInfo_init_zero;
     char _lastError[160] = {};

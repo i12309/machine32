@@ -6,42 +6,14 @@
 
 #include "Service/Log.h"
 #include "Service/PinList.h"
+#include "config/ScreenConfig.h"
+#include "link/UartLink.h"
+#include "link/WebSocketServerLink.h"
 
 namespace machine32::screen {
 
-namespace {
-
-const char* payloadName(pb_size_t tag) {
-    switch (tag) {
-        case Envelope_show_page_tag: return "show_page";
-        case Envelope_set_text_tag: return "set_text";
-        case Envelope_set_color_tag: return "set_color";
-        case Envelope_set_visible_tag: return "set_visible";
-        case Envelope_set_value_tag: return "set_value";
-        case Envelope_set_batch_tag: return "set_batch";
-        case Envelope_button_event_tag: return "button_event";
-        case Envelope_input_event_tag: return "input_event";
-        case Envelope_heartbeat_tag: return "heartbeat";
-        case Envelope_hello_tag: return "hello";
-        case Envelope_request_device_info_tag: return "request_device_info";
-        case Envelope_device_info_tag: return "device_info";
-        case Envelope_request_current_page_tag: return "request_current_page";
-        case Envelope_current_page_tag: return "current_page";
-        case Envelope_request_page_state_tag: return "request_page_state";
-        case Envelope_page_state_tag: return "page_state";
-        case Envelope_request_element_state_tag: return "request_element_state";
-        case Envelope_element_state_tag: return "element_state";
-        default: return "unknown";
-    }
-}
-
-const char* endpointName(const screenlib::ScreenEventContext& ctx) {
-    if (ctx.isPhysical) return "physical";
-    if (ctx.isWeb) return "web";
-    return "unknown";
-}
-
-}  // namespace
+Screen::Screen()
+    : _runtime(new screenlib::PageRuntime()) {}
 
 // Возвращает общий экземпляр фасада экрана.
 Screen& Screen::getInstance() {
@@ -83,10 +55,24 @@ bool Screen::init(uint8_t modeValue) {
                static_cast<int>(cfg.physical.uart.rxPin),
                static_cast<int>(cfg.physical.uart.txPin));
     }
-    _runtime.setEventObserver(&Screen::onRuntimeEvent, this);
+    if (_runtime == nullptr) {
+        _runtime.reset(new screenlib::PageRuntime());
+    }
 
-    if (!_runtime.init(cfg)) {
-        snprintf(_lastError, sizeof(_lastError), "screen init failed: %s", _runtime.lastError());
+    if (!_runtime->init(cfg)) {
+        snprintf(_lastError, sizeof(_lastError), "screen init failed");
+        Log::E("[Screen] %s", _lastError);
+        return false;
+    }
+
+    if (usePhysical && !bootstrapPhysicalBridge(cfg)) {
+        snprintf(_lastError, sizeof(_lastError), "physical bridge bootstrap failed");
+        Log::E("[Screen] %s", _lastError);
+        return false;
+    }
+
+    if (useWeb && !bootstrapWebBridge(cfg)) {
+        snprintf(_lastError, sizeof(_lastError), "web bridge bootstrap failed");
         Log::E("[Screen] %s", _lastError);
         return false;
     }
@@ -107,10 +93,13 @@ void Screen::tick() {
     if (!_initialized || isSilent()) {
         return;
     }
-    _runtime.tick();
+    if (_runtime == nullptr) {
+        return;
+    }
+    _runtime->tick();
 
-    const bool physical = _physicalEnabled && _runtime.connectedPhysical();
-    const bool web = _webEnabled && _runtime.connectedWeb();
+    const bool physical = _physicalEnabled && _physicalBridge != nullptr && _physicalBridge->connected();
+    const bool web = _webEnabled && _webBridge != nullptr && _webBridge->connected();
     if (!_connectionStateInitialized ||
         _lastPhysicalConnected != physical ||
         _lastWebConnected != web) {
@@ -128,76 +117,25 @@ bool Screen::back() {
     if (!_initialized || isSilent()) {
         return false;
     }
-    return _runtime.back();
+    return _runtime != nullptr && _runtime->back();
 }
 
 // Возвращает состояние физического соединения экрана.
 bool Screen::connectedPhysical() const {
-    return _initialized && _physicalEnabled && _runtime.connectedPhysical();
+    return _initialized && _physicalEnabled && _physicalBridge != nullptr && _physicalBridge->connected();
 }
 
 // Возвращает состояние web-соединения экрана.
 bool Screen::connectedWeb() const {
-    return _initialized && _webEnabled && _runtime.connectedWeb();
+    return _initialized && _webEnabled && _webBridge != nullptr && _webBridge->connected();
 }
 
 // Запрашивает у экрана текущую служебную информацию об устройстве.
 bool Screen::updateScreenVersion() {
-    if (!_initialized || isSilent()) {
-        _screenVersion = kUnknownScreenVersion;
-        return false;
-    }
-    const bool requested = _runtime.screens().requestDeviceInfo(kDeviceInfoRequestId);
-    Log::D("[Screen] tx request_device_info request_id=%lu status=%s",
-           static_cast<unsigned long>(kDeviceInfoRequestId),
-           requested ? "ok" : "fail");
-    return requested;
-}
-
-// Перенаправляет событие runtime в экземпляр фасада.
-void Screen::onRuntimeEvent(const Envelope& env, const screenlib::ScreenEventContext& ctx, void* userData) {
-    Screen* self = static_cast<Screen*>(userData);
-    if (self != nullptr) {
-        self->handleRuntimeEvent(env, ctx);
-    }
-}
-
-// Разбирает только системные события runtime.
-void Screen::handleRuntimeEvent(const Envelope& env, const screenlib::ScreenEventContext& ctx) {
-    Log::D("[Screen] rx payload=%s(%u) from %s endpoint=%u",
-           payloadName(env.which_payload),
-           static_cast<unsigned>(env.which_payload),
-           endpointName(ctx),
-           static_cast<unsigned>(ctx.endpointId));
-
-    switch (env.which_payload) {
-        case Envelope_hello_tag:
-            if (env.payload.hello.has_device_info) {
-                applyDeviceInfo(env.payload.hello.device_info, ctx);
-            }
-            break;
-
-        case Envelope_device_info_tag:
-            applyDeviceInfo(env.payload.device_info, ctx);
-            break;
-
-        default:
-            break;
-    }
-}
-
-// Сохраняет служебную информацию, пришедшую от экрана.
-void Screen::applyDeviceInfo(const DeviceInfo& info, const screenlib::ScreenEventContext& ctx) {
-    _deviceInfo = info;
-    _hasDeviceInfo = true;
-    _screenVersion = parseScreenVersion(info.ui_version);
-
-    Log::D("[Screen] device info from %s: fw='%s' ui='%s' type='%s' client='%s'",
-           endpointName(ctx),
-           info.fw_version,
-           info.ui_version,
-           info.screen_type,
-           info.client_type);
+    // TODO object-model: вернуть запрос device_info через OOB handler PageRuntime.
+    _screenVersion = kUnknownScreenVersion;
+    Log::D("[Screen] updateScreenVersion is disabled during object-model migration");
+    return false;
 }
 
 // Извлекает номер версии из текста вида "UI: 123".
@@ -246,10 +184,13 @@ void Screen::reset() {
     _connectionStateInitialized = false;
     _lastPhysicalConnected = false;
     _lastWebConnected = false;
-    _hasDeviceInfo = false;
     _screenVersion = kUnknownScreenVersion;
     _deviceInfo = DeviceInfo{};
-    _runtime = screenlib::SinglePageRuntime();
+    _runtime.reset(new screenlib::PageRuntime());
+    _physicalBridge.reset();
+    _webBridge.reset();
+    _physicalTransport.reset();
+    _webTransport.reset();
     _lastError[0] = '\0';
 }
 
@@ -330,6 +271,74 @@ void Screen::buildConfig(bool usePhysical, bool useWeb, screenlib::ScreenConfig&
     } else {
         cfg.mirrorMode = screenlib::MirrorMode::PhysicalOnly;
     }
+}
+
+bool Screen::bootstrapPhysicalBridge(const screenlib::ScreenConfig& cfg) {
+    if (!cfg.physical.enabled) {
+        return false;
+    }
+
+    switch (cfg.physical.type) {
+        case screenlib::OutputType::Uart: {
+            std::unique_ptr<UartLink> uart(new UartLink(Serial1));
+            UartLink::Config uartCfg{};
+            uartCfg.baud = cfg.physical.uart.baud;
+            uartCfg.rxPin = cfg.physical.uart.rxPin;
+            uartCfg.txPin = cfg.physical.uart.txPin;
+            uart->begin(uartCfg);
+            _physicalTransport = std::move(uart);
+            break;
+        }
+
+        case screenlib::OutputType::WsServer: {
+            std::unique_ptr<WebSocketServerLink> ws(
+                new WebSocketServerLink(cfg.physical.wsServer.port));
+            ws->begin();
+            _physicalTransport = std::move(ws);
+            break;
+        }
+
+        default:
+            return false;
+    }
+
+    _physicalBridge.reset(new ScreenBridge(*_physicalTransport));
+    _runtime->attachPhysicalBridge(_physicalBridge.get());
+    return true;
+}
+
+bool Screen::bootstrapWebBridge(const screenlib::ScreenConfig& cfg) {
+    if (!cfg.web.enabled) {
+        return false;
+    }
+
+    switch (cfg.web.type) {
+        case screenlib::OutputType::Uart: {
+            std::unique_ptr<UartLink> uart(new UartLink(Serial2));
+            UartLink::Config uartCfg{};
+            uartCfg.baud = cfg.web.uart.baud;
+            uartCfg.rxPin = cfg.web.uart.rxPin;
+            uartCfg.txPin = cfg.web.uart.txPin;
+            uart->begin(uartCfg);
+            _webTransport = std::move(uart);
+            break;
+        }
+
+        case screenlib::OutputType::WsServer: {
+            std::unique_ptr<WebSocketServerLink> ws(
+                new WebSocketServerLink(cfg.web.wsServer.port));
+            ws->begin();
+            _webTransport = std::move(ws);
+            break;
+        }
+
+        default:
+            return false;
+    }
+
+    _webBridge.reset(new ScreenBridge(*_webTransport));
+    _runtime->attachWebBridge(_webBridge.get());
+    return true;
 }
 
 }  // namespace machine32::screen
