@@ -56,7 +56,7 @@ public:
     const char* lastError() const { return _lastError; }
 
     int getScreenVersion() const { return _screenVersion; }
-    bool hasDeviceInfo() const { return false; }
+    bool hasDeviceInfo() const { return _hasDeviceInfo; }
     const char* screenUiVersion() const { return _deviceInfo.ui_version; }
     const char* screenFwVersion() const { return _deviceInfo.fw_version; }
     // Запрашивает у экрана служебную информацию об устройстве.
@@ -84,6 +84,8 @@ private:
     bool bootstrapPhysicalBridge(const screenlib::ScreenConfig& cfg);
     // Поднимает транспорт и bridge web-экрана.
     bool bootstrapWebBridge(const screenlib::ScreenConfig& cfg);
+    static void onDeviceInfo(const DeviceInfo& info, void* userData);
+    void handleDeviceInfo(const DeviceInfo& info);
 
     std::unique_ptr<screenlib::PageRuntime> _runtime;
     std::unique_ptr<ITransport> _physicalTransport;
@@ -97,6 +99,7 @@ private:
     bool _connectionStateInitialized = false;
     bool _lastPhysicalConnected = false;
     bool _lastWebConnected = false;
+    bool _hasDeviceInfo = false;
     int _screenVersion = kUnknownScreenVersion;
     DeviceInfo _deviceInfo = DeviceInfo_init_zero;
     char _lastError[160] = {};

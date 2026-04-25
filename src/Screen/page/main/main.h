@@ -20,6 +20,7 @@ protected:
     void onShow() override {
         btn_MAIN_TASK.onClick = [this] {
             // TODO object-model: открыть Task после миграции страницы.
+            Log::D("btn_MAIN_TASK");
         };
         btn_MAIN_PROFILE.onClick = [this] {
             // TODO object-model: открыть Profile после миграции страницы.

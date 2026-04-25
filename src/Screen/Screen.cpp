@@ -64,6 +64,7 @@ bool Screen::init(uint8_t modeValue) {
         Log::E("[Screen] %s", _lastError);
         return false;
     }
+    _runtime->setDeviceInfoListener(&Screen::onDeviceInfo, this);
 
     if (usePhysical && !bootstrapPhysicalBridge(cfg)) {
         snprintf(_lastError, sizeof(_lastError), "physical bridge bootstrap failed");
@@ -132,10 +133,49 @@ bool Screen::connectedWeb() const {
 
 // Запрашивает у экрана текущую служебную информацию об устройстве.
 bool Screen::updateScreenVersion() {
-    // TODO object-model: вернуть запрос device_info через OOB handler PageRuntime.
-    _screenVersion = kUnknownScreenVersion;
-    Log::D("[Screen] updateScreenVersion is disabled during object-model migration");
-    return false;
+    if (!_initialized || isSilent()) {
+        return false;
+    }
+    if (_hasDeviceInfo) {
+        return true;
+    }
+
+    bool sent = false;
+    if (_physicalEnabled && _physicalBridge != nullptr) {
+        sent = _physicalBridge->requestDeviceInfo(1) || sent;
+    }
+    if (_webEnabled && _webBridge != nullptr) {
+        sent = _webBridge->requestDeviceInfo(1) || sent;
+    }
+    if (!sent) {
+        Log::D("[Screen] device_info request was not sent: no active bridge");
+    }
+    return sent;
+}
+
+// Receives service info from the screen runtime.
+void Screen::onDeviceInfo(const DeviceInfo& info, void* userData) {
+    Screen* self = static_cast<Screen*>(userData);
+    if (self != nullptr) {
+        self->handleDeviceInfo(info);
+    }
+}
+
+void Screen::handleDeviceInfo(const DeviceInfo& info) {
+    _deviceInfo = info;
+    _hasDeviceInfo = true;
+
+    _screenVersion = parseScreenVersion(_deviceInfo.ui_version);
+    if (_screenVersion == kUnknownScreenVersion) {
+        _screenVersion = parseScreenVersion(_deviceInfo.fw_version);
+    }
+
+    Log::D("[Screen] device info: fw=%s ui=%s type=%s client=%s protocol=%lu",
+           _deviceInfo.fw_version,
+           _deviceInfo.ui_version,
+           _deviceInfo.screen_type,
+           _deviceInfo.client_type,
+           static_cast<unsigned long>(_deviceInfo.protocol_version));
 }
 
 // Извлекает номер версии из текста вида "UI: 123".
@@ -184,6 +224,7 @@ void Screen::reset() {
     _connectionStateInitialized = false;
     _lastPhysicalConnected = false;
     _lastWebConnected = false;
+    _hasDeviceInfo = false;
     _screenVersion = kUnknownScreenVersion;
     _deviceInfo = DeviceInfo{};
     _runtime.reset(new screenlib::PageRuntime());
