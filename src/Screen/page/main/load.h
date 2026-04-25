@@ -11,7 +11,12 @@
 namespace machine32::screen {
 
 // Страница загрузки, которая показывает версию и MAC до перехода дальше.
-class Load : public screenui::LoadBase<Load> {
+class Load : public screenui::LoadPage<Load> {
+public:
+    static bool show() {
+        return Screen::getInstance().showPage<Load>();
+    }
+
 protected:
     // Подготавливает отображаемые сервисные данные страницы загрузки.
     void onShow() override {
@@ -19,8 +24,8 @@ protected:
 
         Screen& screen = Screen::getInstance();
         const String version = Version::makeDeviceVersion(screen.getScreenVersion());
-        element(txt_LOAD_VERSION).setText(version.c_str());
-        element(txt_LOAD_MA_CADDRESS).setText(WiFi.macAddress().c_str());
+        txt_LOAD_VERSION.text = version.c_str();
+        txt_LOAD_MA_CADDRESS.text = WiFi.macAddress().c_str();
     }
 
     // После перехода состояния в IDLE открывает главный экран.
