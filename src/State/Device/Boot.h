@@ -11,6 +11,8 @@
 #include "Service/Stats.h"
 #include "Service/WiFiConfig.h"
 #include "Screen/Screen.h"
+#include "Screen/page/main/INIT.h"
+#include "Screen/page/main/info.h"
 #include "Screen/page/main/load.h"
 #include "Screen/page/main/main.h"
 #include "version.h"
@@ -20,6 +22,8 @@
 
 using machine32::screen::Load;
 using machine32::screen::Main;
+using machine32::screen::Init;
+using machine32::screen::Info;
 using machine32::screen::Screen;
 
 // Состояние начальной загрузки устройства.
@@ -72,6 +76,18 @@ private:
     // Пишет ошибочный статус загрузки в лог.
     static void setStatusFail(const String& text) {
         Log::E("BOOT: %s", text.c_str());
+    }
+
+    // Открывает страницу первичной инициализации после ошибок config/machine.
+    static void showInitPage() {
+        if (!context().screenReady) {
+            Log::E("[BOOT] Init page is unavailable: screen is not ready");
+            return;
+        }
+
+        if (!Init::show()) {
+            Log::E(" === ERROR ShowInit: %s", Screen::getInstance().lastError());
+        }
     }
 public:
     // Создает состояние BOOT.
@@ -227,8 +243,7 @@ private:
             }
             nvs.setInt("boot_count", 0, "boot");
             nvs.setInt("ota_pending", 0, "boot");
-            // TODO object-model: вернуть Info/Init после миграции этих страниц.
-            Log::E("[BOOT] Info/Init pages are disabled during object-model migration");
+            Info::showInfo("", "Что-то пошло не так!", "Проверьте параметры", [](){ Init::show(); });
             requestAbort(State::Type::NULL_STATE);
             return true;
         }
@@ -245,8 +260,7 @@ private:
             if (!App::machine().selectByName(selectedMachine, &machineError)) {
                 setStatusFail(machineError);
                 Log::E(" === ERROR Machine Select: %s", machineError.c_str());
-                // TODO object-model: вернуть Init::show() после миграции страницы Init.
-                Log::E("[BOOT] Init page is disabled during object-model migration");
+                showInitPage();
                 requestAbort(State::Type::NULL_STATE);
                 return true;
             }
@@ -256,8 +270,7 @@ private:
         setStatusFail("Ошибка загруки config"); //TODO надо сделать что бы при этой ошибке http был доступен и можно было исправить config
         Log::E(" === ERROR Core::config.load");
         Core::config.print_config();  // отладка - выведем что в config при ошибке
-        // TODO object-model: вернуть Init::show() после миграции страницы Init.
-        Log::E("[BOOT] Init page is disabled during object-model migration");
+        showInitPage();
         requestAbort(State::Type::NULL_STATE);
         return true;
     }

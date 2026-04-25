@@ -359,7 +359,7 @@ void Init::onShow() {
 
     pnl_INIT_TITLE.text = "Инициализация";
     btn_INIT_HTTP.text = "HTTP";
-    btn_INIT_OK.text = "Сохранить";
+    btn_INIT_OK.text = "OK";
     state.machineList = supportedMachineList("\n");
     drp_INIT_MACHINE.text = state.machineList.c_str();
     drp_INIT_MACHINE.value = supportedMachineIndex(state.machineName);
