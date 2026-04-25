@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstring>
 #include <functional>
 
 #include "Screen/Screen.h"
@@ -7,10 +8,13 @@
 
 namespace machine32::screen {
 
-// Экран ввода, повторяющий контракт старого pINPUT на новом runtime.
-class Input : public screenui::InputBase<Input> {
+class Input : public screenui::InputPage<Input> {
 public:
     using InputCallback = std::function<void(const String&)>;
+
+    static bool show() {
+        return Screen::getInstance().showPage<Input>();
+    }
 
     static bool showInput(const String& title,
                           const String& info1,
@@ -35,60 +39,34 @@ public:
 protected:
     void onShow() override {
         const DialogState& state = dialogState();
-        element(pnl_INPUT_TITLE_1).setText(state.title.c_str());
-        element(btn_INPUT_FIELD1).setText(state.info1.c_str());
-        element(btn_INPUT_FIELD2).setText(state.info2.c_str());
+        setElementText(pnl_INPUT_TITLE_1.id(), state.title.c_str());
+        btn_INPUT_FIELD1.text = state.info1.c_str();
+        btn_INPUT_FIELD2.text = state.info2.c_str();
 
         if (state.showField) {
-            element(btn_INPUT_FIELD3).setText(state.value.c_str());
-            element(btn_INPUT_FIELD4).setText("   Введите\r\nинформацию");
-            element(btn_INPUT_FIELD3).setVisible(true);
-            element(btn_INPUT_FIELD4).setVisible(true);
+            btn_INPUT_FIELD3.text = state.value.c_str();
+            btn_INPUT_FIELD4.text = "   Введите\r\nинформацию";
+            btn_INPUT_FIELD3.visible = true;
+            btn_INPUT_FIELD4.visible = true;
         } else {
-            element(btn_INPUT_FIELD3).setText("");
-            element(btn_INPUT_FIELD4).setText("");
-            element(btn_INPUT_FIELD3).setVisible(false);
-            element(btn_INPUT_FIELD4).setVisible(false);
+            btn_INPUT_FIELD3.text = "";
+            btn_INPUT_FIELD4.text = "";
+            btn_INPUT_FIELD3.visible = false;
+            btn_INPUT_FIELD4.visible = false;
         }
+
+        btn_INPUT_OK.onClick = [this] { handleOk(); };
+        btn_INPUT_CANCEL.onClick = [this] { handleCancel(); };
     }
 
     void onInputText(uint32_t elementId, const char* text) override {
-        if (elementId != btn_INPUT_FIELD3) {
+        if (elementId != btn_INPUT_FIELD3.id()) {
             return;
         }
 
         DialogState& state = dialogState();
         state.value = text == nullptr ? "" : text;
-        element(btn_INPUT_FIELD3).setText(state.value.c_str());
-    }
-
-    void onClickInputOk() override {
-        DialogState& state = dialogState();
-        InputCallback callback = state.onOk;
-        const String value = state.value;
-        const bool shouldAutoBack = state.autoBack;
-        resetState(state);
-
-        if (callback) {
-            callback(value);
-        }
-        if (shouldAutoBack) {
-            Screen::getInstance().back();
-        }
-    }
-
-    void onClickInputCancel() override {
-        DialogState& state = dialogState();
-        std::function<void()> callback = state.onCancel;
-        const bool shouldAutoBack = state.autoBack;
-        resetState(state);
-
-        if (callback) {
-            callback();
-        }
-        if (shouldAutoBack) {
-            Screen::getInstance().back();
-        }
+        btn_INPUT_FIELD3.text = state.value.c_str();
     }
 
 private:
@@ -112,6 +90,51 @@ private:
         state.onOk = nullptr;
         state.onCancel = nullptr;
         state.autoBack = true;
+    }
+
+    void setElementText(uint32_t elementId, const char* text) {
+        if (runtime() == nullptr) {
+            return;
+        }
+
+        const char* value = text == nullptr ? "" : text;
+        runtime()->model().setString(elementId, ELEMENT_ATTRIBUTE_TEXT, value);
+
+        ElementAttributeValue eav{};
+        eav.attribute = ELEMENT_ATTRIBUTE_TEXT;
+        eav.which_value = ElementAttributeValue_string_value_tag;
+        std::strncpy(eav.value.string_value, value, sizeof(eav.value.string_value) - 1);
+        eav.value.string_value[sizeof(eav.value.string_value) - 1] = '\0';
+        runtime()->sendSetAttribute(elementId, eav);
+    }
+
+    void handleOk() {
+        DialogState& state = dialogState();
+        InputCallback callback = state.onOk;
+        const String value = state.value;
+        const bool shouldAutoBack = state.autoBack;
+        resetState(state);
+
+        if (callback) {
+            callback(value);
+        }
+        if (shouldAutoBack) {
+            Screen::getInstance().back();
+        }
+    }
+
+    void handleCancel() {
+        DialogState& state = dialogState();
+        std::function<void()> callback = state.onCancel;
+        const bool shouldAutoBack = state.autoBack;
+        resetState(state);
+
+        if (callback) {
+            callback();
+        }
+        if (shouldAutoBack) {
+            Screen::getInstance().back();
+        }
     }
 };
 

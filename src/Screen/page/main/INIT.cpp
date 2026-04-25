@@ -1,5 +1,7 @@
 #include "Screen/page/main/INIT.h"
 
+#include <cstring>
+
 #include <WiFi.h>
 #include <esp_system.h>
 
@@ -26,6 +28,22 @@ struct InitState {
 InitState& initState() {
     static InitState state;
     return state;
+}
+
+void setElementText(screenlib::IPage& page, uint32_t elementId, const char* text) {
+    if (page.runtime() == nullptr) {
+        return;
+    }
+
+    const char* value = text == nullptr ? "" : text;
+    page.runtime()->model().setString(elementId, ELEMENT_ATTRIBUTE_TEXT, value);
+
+    ElementAttributeValue eav{};
+    eav.attribute = ELEMENT_ATTRIBUTE_TEXT;
+    eav.which_value = ElementAttributeValue_string_value_tag;
+    std::strncpy(eav.value.string_value, value, sizeof(eav.value.string_value) - 1);
+    eav.value.string_value[sizeof(eav.value.string_value) - 1] = '\0';
+    page.runtime()->sendSetAttribute(elementId, eav);
 }
 
 // Возвращает первую поддерживаемую машину из каталога.
@@ -356,21 +374,27 @@ void Init::onShow() {
     ensureInitDefaults();
     InitState& state = initState();
 
-    // INIT в новом runtime работает как форма и визуально повторяет старый pINIT.
-    element(pnl_INIT_TITLE).setText("Инициализация");
-    element(btn_INIT_HTTP).setText("HTTP");
-    element(btn_INIT_OK).setText("Сохранить");
-    element(drp_INIT_MACHINE).setText(supportedMachineList("\n").c_str());
-    element(drp_INIT_MACHINE).setValue(supportedMachineIndex(state.machineName));
-    element(btn_INIT_GROUP).setText(state.group.c_str());
-    element(btn_INIT_NAME).setText(state.name.c_str());
-    element(btn_INIT_ACCESS_POINT).setText("Точка доступа");
-    element(chk_INIT_R_ACCESS_POINT).setValue(state.accessPoint ? 1 : 0);
-    element(btn_INIT_TEST).setText("Тестовые данные");
-    element(chk_INIT_R_TEST).setValue(state.withTestData ? 1 : 0);
+    setElementText(*this, pnl_INIT_TITLE.id(), "Инициализация");
+    btn_INIT_HTTP.text = "HTTP";
+    btn_INIT_OK.text = "Сохранить";
+    drp_INIT_MACHINE.text = supportedMachineList("\n").c_str();
+    drp_INIT_MACHINE.value = supportedMachineIndex(state.machineName);
+    btn_INIT_GROUP.text = state.group.c_str();
+    btn_INIT_NAME.text = state.name.c_str();
+    btn_INIT_ACCESS_POINT.text = "Точка доступа";
+    chk_INIT_R_ACCESS_POINT.value = state.accessPoint ? 1 : 0;
+    btn_INIT_TEST.text = "Тестовые данные";
+    chk_INIT_R_TEST.value = state.withTestData ? 1 : 0;
+
+    btn_INIT_HTTP.onClick = [this] { handleHttp(); };
+    btn_INIT_OK.onClick = [this] { handleOk(); };
+    btn_INIT_GROUP.onClick = [this] { handleGroup(); };
+    btn_INIT_NAME.onClick = [this] { handleName(); };
+    btn_INIT_ACCESS_POINT.onClick = [this] { handleAccessPoint(); };
+    btn_INIT_TEST.onClick = [this] { handleTest(); };
 }
 
-void Init::onClickInitHttp() {
+void Init::handleHttp() {
     Info::showInfo(
         "WiFi",
         "Вы хотите подключиться к WiFi сети?",
@@ -381,7 +405,7 @@ void Init::onClickInitHttp() {
     );
 }
 
-void Init::onClickInitOk() {
+void Init::handleOk() {
     // Проверяем обязательные поля перед сохранением config/data.
     InitState& state = initState();
     state.group.trim();
@@ -410,7 +434,7 @@ void Init::onClickInitOk() {
     saveInitConfig();
 }
 
-void Init::onClickInitGroup() {
+void Init::handleGroup() {
     // Редактирование группы вынесено в универсальный экран Input.
     Input::showInput(
         "Инициализация",
@@ -429,7 +453,7 @@ void Init::onClickInitGroup() {
     );
 }
 
-void Init::onClickInitName() {
+void Init::handleName() {
     // Редактирование имени вынесено в универсальный экран Input.
     Input::showInput(
         "Инициализация",
@@ -448,17 +472,17 @@ void Init::onClickInitName() {
     );
 }
 
-void Init::onClickInitAccessPoint() {
+void Init::handleAccessPoint() {
     initState().accessPoint = !initState().accessPoint;
     Init::show();
 }
 
-void Init::onClickInitTest() {
+void Init::handleTest() {
     initState().withTestData = !initState().withTestData;
     Init::show();
 }
 
-void Init::onChangeInitMachine(int32_t value) {
+void Init::handleMachineChange(int32_t value) {
     // Dropdown присылает индекс, по нему обновляем выбранную машину в локальном state.
     const Catalog::MachineType machine = machineBySupportedIndex(value);
     if (machine != Catalog::MachineType::UNKNOWN) {
@@ -466,12 +490,27 @@ void Init::onChangeInitMachine(int32_t value) {
     }
 }
 
-void Init::onChangeInitRAccessPoint(int32_t value) {
+void Init::handleAccessPointChange(int32_t value) {
     initState().accessPoint = value != 0;
 }
 
-void Init::onChangeInitRTest(int32_t value) {
+void Init::handleTestChange(int32_t value) {
     initState().withTestData = value != 0;
+}
+
+void Init::onInputInt(uint32_t elementId, int32_t value) {
+    if (elementId == drp_INIT_MACHINE.id()) {
+        handleMachineChange(value);
+        return;
+    }
+    if (elementId == chk_INIT_R_ACCESS_POINT.id()) {
+        handleAccessPointChange(value);
+        return;
+    }
+    if (elementId == chk_INIT_R_TEST.id()) {
+        handleTestChange(value);
+        return;
+    }
 }
 
 }  // namespace machine32::screen

@@ -5,22 +5,27 @@
 
 namespace machine32::screen {
 
-// Экран инициализации в новом runtime. Поля и события соответствуют
-// regenerated INIT из ScreenUI и по смыслу повторяют старый pINIT.
-class Init : public screenui::InitBase<Init> {
+class Init : public screenui::InitPage<Init> {
+public:
+    static bool show() {
+        return Screen::getInstance().showPage<Init>();
+    }
+
 protected:
     void onShow() override;
+    void onInputInt(uint32_t elementId, int32_t value) override;
 
-    void onClickInitHttp() override;
-    void onClickInitOk() override;
-    void onClickInitGroup() override;
-    void onClickInitName() override;
-    void onClickInitAccessPoint() override;
-    void onClickInitTest() override;
+private:
+    void handleHttp();
+    void handleOk();
+    void handleGroup();
+    void handleName();
+    void handleAccessPoint();
+    void handleTest();
 
-    void onChangeInitMachine(int32_t value) override;
-    void onChangeInitRAccessPoint(int32_t value) override;
-    void onChangeInitRTest(int32_t value) override;
+    void handleMachineChange(int32_t value);
+    void handleAccessPointChange(int32_t value);
+    void handleTestChange(int32_t value);
 };
 
 }  // namespace machine32::screen

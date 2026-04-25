@@ -7,9 +7,12 @@
 
 namespace machine32::screen {
 
-// Экран информационного диалога, повторяющий контракт старого pINFO.
-class Info : public screenui::InfoBase<Info> {
+class Info : public screenui::InfoPage<Info> {
 public:
+    static bool show() {
+        return Screen::getInstance().showPage<Info>();
+    }
+
     static bool showInfo(String text1 = "", String text2 = "", String text3 = "",
                          std::function<void()> onOk = nullptr,
                          std::function<void()> onCancel = nullptr,
@@ -36,71 +39,32 @@ protected:
     void onShow() override {
         const DialogState& state = dialogState();
 
-        //element(pnl_INFO_TITLE).setText("");
-        element(btn_INFO_FIELD1).setText(state.text1.c_str());
-        element(btn_INFO_FIELD2).setText(state.text2.c_str());
-        element(btn_INFO_FIELD3).setText(state.text3.c_str());
+        btn_INFO_FIELD1.text = state.text1.c_str();
+        btn_INFO_FIELD2.text = state.text2.c_str();
+        btn_INFO_FIELD3.text = state.text3.c_str();
 
         applyButtonTexts(state);
 
-        element(btn_INFO_CANCEL).setVisible(state.showCancel);
-        element(btn_INFO_BACK).setVisible(state.onBack != nullptr);
-        element(btn_INFO_NEXT).setVisible(state.onNext != nullptr);
+        btn_INFO_CANCEL.visible = state.showCancel;
+        btn_INFO_BACK.visible = state.onBack != nullptr;
+        btn_INFO_NEXT.visible = state.onNext != nullptr;
 
-        if (state.onBack != nullptr) element(pnl_INFO_TITLE).setWidth(element(pnl_INFO_TITLE).getWidth() - element(btn_INFO_BACK).getWidth());
-        if (state.onNext != nullptr) element(pnl_INFO_TITLE).setWidth(element(pnl_INFO_TITLE).getWidth() - element(btn_INFO_NEXT).getWidth());
-    }
-
-    void onClickInfoOk() override {
-        DialogState& state = dialogState();
-        std::function<void()> callback = state.onOk;
-        resetCallbacks(state);
-        if (callback) {
-            callback();
-            return;
+        if (state.onBack != nullptr) {
+            pnl_INFO_TITLE.width = static_cast<int32_t>(pnl_INFO_TITLE.width) -
+                                   static_cast<int32_t>(btn_INFO_BACK.width);
+        }
+        if (state.onNext != nullptr) {
+            pnl_INFO_TITLE.width = static_cast<int32_t>(pnl_INFO_TITLE.width) -
+                                   static_cast<int32_t>(btn_INFO_NEXT.width);
         }
 
-        Screen::getInstance().back();
-    }
-
-    void onClickInfoCancel() override {
-        DialogState& state = dialogState();
-        std::function<void()> callback = state.onCancel;
-        resetCallbacks(state);
-        if (callback) {
-            callback();
-            return;
-        }
-
-        Screen::getInstance().back();
-    }
-
-    void onClickInfoBack() override {
-        DialogState& state = dialogState();
-        std::function<void()> callback = state.onBack;
-        resetCallbacks(state);
-        if (callback) {
-            callback();
-            return;
-        }
-
-        Screen::getInstance().back();
-    }
-
-    void onClickInfoNext() override {
-        DialogState& state = dialogState();
-        std::function<void()> callback = state.onNext;
-        resetCallbacks(state);
-        if (callback) {
-            callback();
-        }
+        btn_INFO_OK.onClick = [this] { handleOk(); };
+        btn_INFO_CANCEL.onClick = [this] { handleCancel(); };
+        btn_INFO_BACK.onClick = [this] { handleBack(); };
+        btn_INFO_NEXT.onClick = [this] { handleNext(); };
     }
 
 private:
-    static constexpr uint32_t kRequestInfoBackWidth = 0x494E4601u;
-    static constexpr uint32_t kRequestInfoNextWidth = 0x494E4602u;
-    static constexpr int32_t kDefaultNavButtonWidthPct = 15;
-
     struct DialogState {
         String text1;
         String text2;
@@ -128,11 +92,56 @@ private:
 
     void applyButtonTexts(const DialogState& state) {
         const String okLabel = state.okText.length() > 0 ? state.okText : "OK";
-        element(btn_INFO_OK).setText(okLabel.c_str());
+        btn_INFO_OK.text = okLabel.c_str();
 
         if (state.showCancel) {
             const String cancelLabel = state.cancelText.length() > 0 ? state.cancelText : "Отмена";
-            element(btn_INFO_CANCEL).setText(cancelLabel.c_str());
+            btn_INFO_CANCEL.text = cancelLabel.c_str();
+        }
+    }
+
+    void handleOk() {
+        DialogState& state = dialogState();
+        std::function<void()> callback = state.onOk;
+        resetCallbacks(state);
+        if (callback) {
+            callback();
+            return;
+        }
+
+        Screen::getInstance().back();
+    }
+
+    void handleCancel() {
+        DialogState& state = dialogState();
+        std::function<void()> callback = state.onCancel;
+        resetCallbacks(state);
+        if (callback) {
+            callback();
+            return;
+        }
+
+        Screen::getInstance().back();
+    }
+
+    void handleBack() {
+        DialogState& state = dialogState();
+        std::function<void()> callback = state.onBack;
+        resetCallbacks(state);
+        if (callback) {
+            callback();
+            return;
+        }
+
+        Screen::getInstance().back();
+    }
+
+    void handleNext() {
+        DialogState& state = dialogState();
+        std::function<void()> callback = state.onNext;
+        resetCallbacks(state);
+        if (callback) {
+            callback();
         }
     }
 };
