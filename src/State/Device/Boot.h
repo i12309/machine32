@@ -134,6 +134,7 @@ public:
         }
 
         if (!plan.hasPending()) {
+            ESPUpdate::getInstance().markCurrentFirmwareValid();
             Log::L(" === END LOAD v.%s", Version::makeDeviceVersion(NexUpdate::getInstance().getCurrentVersion()).c_str());
             Data::param.reset();
             App::ctx().reg.reset();
