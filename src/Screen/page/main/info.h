@@ -49,14 +49,8 @@ protected:
         btn_INFO_BACK.visible = state.onBack != nullptr;
         btn_INFO_NEXT.visible = state.onNext != nullptr;
 
-        if (state.onBack != nullptr) {
-            pnl_INFO_TITLE.width = static_cast<int32_t>(pnl_INFO_TITLE.width) -
-                                   static_cast<int32_t>(btn_INFO_BACK.width);
-        }
-        if (state.onNext != nullptr) {
-            pnl_INFO_TITLE.width = static_cast<int32_t>(pnl_INFO_TITLE.width) -
-                                   static_cast<int32_t>(btn_INFO_NEXT.width);
-        }
+        if (state.onBack != nullptr) pnl_INFO_TITLE.width = static_cast<int32_t>(pnl_INFO_TITLE.width) + static_cast<int32_t>(btn_INFO_BACK.width);
+        if (state.onNext != nullptr) pnl_INFO_TITLE.width = static_cast<int32_t>(pnl_INFO_TITLE.width) + static_cast<int32_t>(btn_INFO_NEXT.width);
 
         btn_INFO_OK.onClick = [this] { handleOk(); };
         btn_INFO_CANCEL.onClick = [this] { handleCancel(); };
