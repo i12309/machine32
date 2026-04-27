@@ -365,9 +365,7 @@ void Init::onShow() {
     drp_INIT_MACHINE.value = supportedMachineIndex(state.machineName);
     btn_INIT_GROUP.text = state.group.c_str();
     btn_INIT_NAME.text = state.name.c_str();
-    btn_INIT_ACCESS_POINT.text = "Точка доступа";
     chk_INIT_R_ACCESS_POINT.value = state.accessPoint ? 1 : 0;
-    btn_INIT_TEST.text = "Тестовые данные";
     chk_INIT_R_TEST.value = state.withTestData ? 1 : 0;
 
     btn_INIT_HTTP.onClick = [this] { handleHttp(); };
