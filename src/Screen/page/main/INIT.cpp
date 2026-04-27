@@ -476,6 +476,20 @@ void Init::handleAccessPointChange(int32_t value) {
     initState().accessPoint = value != 0;
 }
 
+void Init::handleGroupChange(const char* text) {
+    InitState& state = initState();
+    state.group = text == nullptr ? "" : text;
+    state.group.trim();
+    btn_INIT_GROUP.text = state.group.c_str();
+}
+
+void Init::handleNameChange(const char* text) {
+    InitState& state = initState();
+    state.name = text == nullptr ? "" : text;
+    state.name.trim();
+    btn_INIT_NAME.text = state.name.c_str();
+}
+
 void Init::handleTestChange(int32_t value) {
     initState().withTestData = value != 0;
 }
@@ -491,6 +505,17 @@ void Init::onInputInt(uint32_t elementId, int32_t value) {
     }
     if (elementId == chk_INIT_R_TEST.id()) {
         handleTestChange(value);
+        return;
+    }
+}
+
+void Init::onInputText(uint32_t elementId, const char* text) {
+    if (elementId == btn_INIT_GROUP.id()) {
+        handleGroupChange(text);
+        return;
+    }
+    if (elementId == btn_INIT_NAME.id()) {
+        handleNameChange(text);
         return;
     }
 }

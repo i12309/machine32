@@ -13,6 +13,7 @@ public:
 
 protected:
     void onShow() override;
+    void onInputText(uint32_t elementId, const char* text) override;
     void onInputInt(uint32_t elementId, int32_t value) override;
 
 private:
@@ -24,6 +25,8 @@ private:
     void handleTest();
 
     void handleMachineChange(int32_t value);
+    void handleGroupChange(const char* text);
+    void handleNameChange(const char* text);
     void handleAccessPointChange(int32_t value);
     void handleTestChange(int32_t value);
 };
